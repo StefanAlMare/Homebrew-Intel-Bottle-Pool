@@ -274,18 +274,20 @@ class Brew:
         installed = info.get("installed", [])
         if installed:
             as_dependency = not any(x.get("installed_on_request", True) for x in installed)
-        if self.up_to_date(info) and name not in self.force_targets:
-            self.seen.add(name)
-            return
         if info.get("pinned"):
             raise ActionRequired("Pinned dependency/formula needs manual review.",
                                  category="unsafe_formula", subject=name,
                                  choices=[{"id": "skip", "label": "Skip"},
                                           {"id": "cancel", "label": "Cancel Upgrade"}])
-        # A pool hit needs runtime dependencies, not the entire compiler toolchain.
+        # Validate/install the runtime graph even when the requested formula itself
+        # is current.  Otherwise a long build can finish with an outdated keg (for
+        # example openssl@3) and only fail during bottle-context validation.
         deps = self.package_lines(self.run("deps", "--topological", "--full-name", name))
         for dep in deps:
             self.ensure(dep, allow_build, as_dependency=True)
+        if self.up_to_date(info) and name not in self.force_targets:
+            self.seen.add(name)
+            return
         info = self.info(name)
         local_manifest = self.manifest(info)
         if self.consume_local(local_manifest, as_dependency):
@@ -325,6 +327,21 @@ class Brew:
             print("Pool offline; building into the local spool: " + name, flush=True)
             self.build(info, local_manifest, None, as_dependency)
         self.seen.add(name)
+
+    def repair_dependency(self, name, allow_build=True):
+        """Repair one dependency while preserving any paused durable queue."""
+        self.validate_name(name)
+        self.preflight()
+        self.run("update", capture=False)
+        self.ensure(name, allow_build=allow_build, as_dependency=True)
+        repaired = self.info(name)
+        if not self.up_to_date(repaired):
+            raise PoolError("Dependency is still not current after repair: " + name)
+        # Recheck the entire installed graph.  A non-zero result is deliberately
+        # surfaced before Retry can publish a dependent bottle.
+        self.run("missing", capture=False)
+        self.run("linkage", "--test", repaired["full_name"], capture=False)
+        return repaired["full_name"]
 
     def install_official(self, info, tag, entry, as_dependency=False):
         m = self.manifest(info, "brew-upstream-bottle", tag, entry["sha256"])

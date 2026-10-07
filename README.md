@@ -74,7 +74,14 @@ The pool server can run on a NAS, TrueNAS system, Linux server, home server, or
 another always-on host with persistent storage and reliable connectivity. The
 backend uses Python's standard library and requires no third-party Python package.
 
-## Release 0.3.2
+## Release 0.3.3
+
+Release 0.3.3 is recovery-focused. At launch, whenever the menu opens, and every
+10 seconds, the app reconciles its UI cache with the real schema-1 backend job.
+An `idle`, `resolved`, or terminal job with zero failures and zero remaining
+steps becomes **Healthy** and immediately unlocks normal actions. A stale
+`pending-run.json`, a resolved `job.json`, a cold launch, or a reboot can no
+longer leave the menu stuck on Paused/Stopped.
 
 The menu-bar application provides:
 
@@ -83,6 +90,16 @@ The menu-bar application provides:
 - **Update & Upgrade** for the coordinated Homebrew workflow;
 - **Install…** with Auto, Formula, and Cask selection;
 - **Sync now** for queued offline results;
+- **Repair / Install Dependency…** while a job is paused, stopped, needs action,
+  or is otherwise idle; it preserves the queue, repairs through the pool-aware
+  formula flow, and runs `brew missing` plus `brew linkage --test`;
+- **Repair Pool State…** to reconcile the GUI or explicitly discard pending
+  work without deleting installed formulae, completed bottles, configuration,
+  token, or spool;
+- an always-available **Maintenance Console…** with explicit command input,
+  live stdout/stderr, in-session command history, Stop Command, exit code, and
+  shortcuts for `brew doctor`, `brew outdated`, `brew missing`, and
+  `brew linkage --test`;
 - **Settings…** for later configuration changes;
 - user-controlled **Start at Login**;
 - distinct **Healthy**, **Busy**, **Action Required**, and **Paused — Error**
@@ -99,6 +116,22 @@ recognized official legacy URLs and unambiguous missing upstream configuration,
 then uses fetch/prune and fast-forward-only updates. Dirty, detached, ahead, or
 divergent repositories require review. Custom remotes and third-party tap URLs
 are preserved.
+
+Before a formula is accepted as current or built/published, its topological
+runtime dependencies are now installed or updated first. This specifically
+prevents a dependent build such as `coreutils` from reaching publication with an
+outdated dependency such as `openssl@3`. Retry revalidates formula and dependency
+context before publication.
+
+Maintenance commands are never inferred from logs and never run automatically.
+They receive closed stdin, secrets are not placed in command arguments by the
+app, and modifying commands share the same exclusive Homebrew lock as normal
+jobs. Read-only diagnostics use a shared lock and cannot overlap a writer.
+Potentially destructive commands require confirmation. A leading `sudo` is
+removed and routed to the native macOS authorization dialog; the application
+does not read or store the password. The console is for Homebrew and pool
+recovery, not for modifying the signed/notarized application bundle; code fixes
+arrive only through a later signed release.
 
 ## Compatibility
 
@@ -201,6 +234,10 @@ brew-pool install wget --type formula
 brew-pool install firefox --type cask
 brew-pool install package-name --type auto
 brew-pool sync
+brew-pool repair dependency openssl@3
+brew-pool repair state
+brew-pool repair state --cancel
+brew-pool maintenance "brew doctor"
 ```
 
 Formula flow is pool lookup, compatible official bottle when available, or local
@@ -254,7 +291,7 @@ Only use the pool among machines and operators you trust.
 
 ## Validation and checksums
 
-Release 0.3.2 passed 94 automated tests, isolated real-Homebrew formula/Cask smoke
+Release 0.3.3 passed 104 automated tests, isolated real-Homebrew formula/Cask smoke
 tests, native GUI workflow checks, strict code-signature checks, Apple
 notarization, stapling, Gatekeeper assessment, and DMG verification. Details and
 known limitations are in [VALIDATION.md](VALIDATION.md).
@@ -286,7 +323,7 @@ and ensures Homebrew compilation happens only where it is useful: on the Intel
 Macs participating in the private pool.
 
 See [QUICKSTART.txt](QUICKSTART.txt), [VALIDATION.md](VALIDATION.md),
-[INSTALLATION.md](INSTALLATION.md), [CHANGELOG.md](CHANGELOG.md), and
+[RELEASE_NOTES.md](RELEASE_NOTES.md), [INSTALLATION.md](INSTALLATION.md), [CHANGELOG.md](CHANGELOG.md), and
 [LICENSE](LICENSE).
 
 ## Credits

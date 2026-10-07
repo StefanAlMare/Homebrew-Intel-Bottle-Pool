@@ -286,3 +286,15 @@ def local_lock(state):
         except BlockingIOError as e:
             raise PoolError("Another pool upgrade is running on this Mac") from e
         yield
+
+
+@contextlib.contextmanager
+def local_read_lock(state):
+    """A diagnostic may share with diagnostics, never with a Brew writer."""
+    import fcntl
+    with open(Path(state) / ".brew.lock", "a+") as f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        except BlockingIOError as e:
+            raise PoolError("A Homebrew operation is active; retry the diagnostic when it finishes") from e
+        yield

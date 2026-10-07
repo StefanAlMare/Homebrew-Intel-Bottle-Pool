@@ -1,4 +1,4 @@
-Homebrew Intel Bottle Pool 0.3.2 — Quick Start
+Homebrew Intel Bottle Pool 0.3.3 — Quick Start
 
 Requirements
   Intel x86_64 Mac, macOS 12+, Homebrew, and Python 3.9+.
@@ -21,6 +21,9 @@ Use
   Update & Upgrade  Run the coordinated Homebrew workflow.
   Install…          Choose Auto, Formula, or Cask.
   Sync now          Retry queued offline publications.
+  Repair Dependency Preserve a paused queue; update a dependency and validate it.
+  Repair Pool State Reconcile stale UI or explicitly discard pending work.
+  Maintenance       Run an explicit diagnostic/repair command and see live output.
   Settings…         Change URL/token/CA settings.
   Start at Login    Optional and controlled by the current user.
 
@@ -34,6 +37,18 @@ States
 At an error, Review Errors shows the cause. Retry Failed retries only failures;
 Resume continues remaining work. Resolve/Skip explicitly acknowledges a failure,
 and Cancel Saved Queue abandons the remaining queue. Stop preserves resumable state.
+
+Recovery example
+  If coreutils reports "Runtime dependency not current: openssl@3", choose
+  Repair / Install Dependency…, enter openssl@3, wait for exit code 0, then use
+  Retry Failed and Resume. The original queue is not replaced.
+
+Maintenance Console
+  Available in Healthy, Paused, Stopped, Action Required, Error, and Offline.
+  Shortcuts: brew doctor, brew outdated, brew missing, brew linkage --test.
+  Commands run only after Run is pressed. Modifying commands use the exclusive
+  Homebrew lock; destructive commands require confirmation. `sudo` uses the
+  native macOS authorization dialog. No password is collected by the app.
 
 Private server
   Run the service on an always-on NAS, TrueNAS system, Linux/home server, or

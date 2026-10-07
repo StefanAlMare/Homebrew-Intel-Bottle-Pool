@@ -83,6 +83,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let syncItem = NSMenuItem(title: "Sync now", action: #selector(syncNow), keyEquivalent: "s")
     private let upgradeItem = NSMenuItem(title: "Update & Upgrade", action: #selector(upgradeViaPool), keyEquivalent: "u")
     private let installItem = NSMenuItem(title: "Install…", action: #selector(openInstall), keyEquivalent: "i")
+    private let repairDependencyItem = NSMenuItem(title: "Repair / Install Dependency…", action: #selector(repairDependency), keyEquivalent: "d")
+    private let repairStateItem = NSMenuItem(title: "Repair Pool State…", action: #selector(repairPoolState), keyEquivalent: "")
+    private let maintenanceItem = NSMenuItem(title: "Maintenance Console…", action: #selector(openMaintenanceConsole), keyEquivalent: "t")
     private let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
     private let loginItem = NSMenuItem(title: "Start at Login", action: #selector(toggleLogin), keyEquivalent: "")
     private var timer: Timer?
@@ -92,6 +95,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var settingsProcess: Process?
     private var setupWindow: NSWindow?
     private var installWindow: NSWindow?
+    private var maintenanceWindow: NSWindow?
+    private var maintenanceProcess: Process?
+    private let maintenanceCommand = NSTextField()
+    private let maintenanceOutput = NSTextView()
+    private let maintenanceRunButton = NSButton(title: "Run", target: nil, action: nil)
+    private let maintenanceStopButton = NSButton(title: "Stop Command", target: nil, action: nil)
+    private let maintenanceShortcuts = NSPopUpButton()
+    private var maintenanceHistory: [String] = []
     private var pendingAction: PendingAction?
     private var pendingRun: PendingRun?
     private var stopping = false
@@ -191,7 +202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         if pendingAction == nil { setVisual(symbol: "hourglass", title: "Checking…") }
         refreshStatus()
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             self?.refreshStatus()
         }
         if !FileManager.default.fileExists(atPath: configURL.path) {
@@ -218,6 +229,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         installItem.target = self
         menu.addItem(installItem)
         menu.addItem(syncItem)
+        repairDependencyItem.target = self
+        menu.addItem(repairDependencyItem)
+        repairStateItem.target = self
+        menu.addItem(repairStateItem)
+        maintenanceItem.target = self
+        menu.addItem(maintenanceItem)
         menu.addItem(.separator())
 
         settingsItem.target = self
@@ -299,8 +316,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func runStatus() {
         guard activeProcess == nil, statusProcess == nil, settingsProcess == nil else { return }
-        guard pendingAction == nil else { showActionVisual(); return }
-        guard pendingRun == nil else { showRunVisual(); return }
         guard FileManager.default.fileExists(atPath: configURL.path) else {
             setVisual(symbol: "exclamationmark.triangle.fill", title: "Error — not configured")
             return
@@ -323,7 +338,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 guard let self = self else { return }
                 self.statusProcess = nil
                 guard self.activeProcess == nil, self.settingsProcess == nil else { return }
-                guard self.pendingAction == nil, self.pendingRun == nil else { self.refreshStatus(); return }
                 if process.terminationStatus == 0,
                    let decoded = try? JSONDecoder().decode(PoolStatus.self, from: data) {
                     if let job = decoded.job, job.failed_count > 0 || job.remaining_count > 0 {
@@ -331,11 +345,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         self.pendingRun = PendingRun(state: job, command: job.resume_command ?? (job.command == "upgrade" ? ["upgrade"] : []), activity: "Busy/Resuming")
                         self.savePendingRun()
                         self.showRunVisual()
-                    } else if decoded.connected && decoded.spool_entries == 0 {
-                        self.setVisual(symbol: "checkmark.circle.fill", title: "Healthy/Connected")
                     } else {
+                        // Backend state is authoritative. A stale GUI cache from a
+                        // crash/reboot must never keep normal actions disabled.
+                        self.pendingRun = nil
+                        try? FileManager.default.removeItem(at: self.runURL)
+                        if decoded.job?.status != "action_required" {
+                            self.clearPendingActionWithoutRefresh()
+                        }
+                        if decoded.connected && decoded.spool_entries == 0 {
+                        self.setVisual(symbol: "checkmark.circle.fill", title: "Healthy/Connected")
+                        } else {
                         let detail = decoded.spool_entries == 1 ? "1 item queued" : "\(decoded.spool_entries) items queued"
                         self.setVisual(symbol: "arrow.triangle.2.circlepath.circle.fill", title: "Offline/Spooling — \(detail)")
+                        }
                     }
                 } else {
                     let message = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Unknown error"
@@ -529,6 +552,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         syncItem.isEnabled = !busy && pendingRun == nil && pendingAction == nil
         upgradeItem.isEnabled = syncItem.isEnabled
         installItem.isEnabled = syncItem.isEnabled
+        repairDependencyItem.isEnabled = !busy && maintenanceProcess == nil && settingsProcess == nil
+        repairStateItem.isEnabled = !busy && maintenanceProcess == nil && settingsProcess == nil
+        maintenanceItem.isEnabled = true
         settingsItem.isEnabled = !busy && settingsProcess == nil
     }
 
@@ -617,8 +643,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                       title: stopping ? "Stopping… · queue retained" : activity)
         } else if pendingAction != nil {
             showActionVisual()
+            if FileManager.default.fileExists(atPath: configURL.path) { runStatus() }
         } else if pendingRun != nil {
             showRunVisual()
+            if FileManager.default.fileExists(atPath: configURL.path) { runStatus() }
         } else {
             runStatus()
         }
@@ -827,6 +855,181 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         runInteractive(command: command, activity: "Busy/Installing \(name)")
     }
 
+    @objc private func repairDependency() {
+        let alert = NSAlert()
+        alert.messageText = "Repair or install a Homebrew dependency"
+        alert.informativeText = "The paused queue is preserved. The dependency is updated first, then Homebrew missing/linkage checks are run before Retry Failed or Resume."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+        field.placeholderString = "Dependency name, e.g. openssl@3"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Repair Dependency")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pattern = "^[A-Za-z0-9][A-Za-z0-9_+@.-]*(/[A-Za-z0-9][A-Za-z0-9_+@.-]*){0,2}$"
+        guard name.range(of: pattern, options: .regularExpression) != nil else {
+            showAlert(title: "Enter one dependency name", message: "Use a Homebrew formula name such as openssl@3.")
+            return
+        }
+        openMaintenanceConsole()
+        launchConsoleClient(["repair", "dependency", name], display: "Repair dependency \(name)")
+    }
+
+    @objc private func repairPoolState() {
+        let alert = NSAlert()
+        alert.messageText = "Repair Homebrew Pool state"
+        alert.informativeText = "Reconcile UI with the backend, or discard the pending queue. Installed software, completed bottles, configuration, token and spool are preserved."
+        alert.addButton(withTitle: "Reconcile UI")
+        alert.addButton(withTitle: "Discard Pending Job")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            pendingRun = nil
+            try? FileManager.default.removeItem(at: runURL)
+            refreshStatus()
+        } else if response == .alertSecondButtonReturn {
+            openMaintenanceConsole()
+            launchConsoleClient(["repair", "state", "--cancel"], display: "Discard pending job")
+        }
+    }
+
+    @objc private func openMaintenanceConsole() {
+        if maintenanceWindow == nil {
+            let heading = NSTextField(labelWithString: "Homebrew Pool Maintenance Console")
+            heading.font = .boldSystemFont(ofSize: 17)
+            let note = NSTextField(wrappingLabelWithString: "Commands run only when you press Run. Input is non-interactive; sudo uses the native macOS authorization dialog. Destructive commands require confirmation.")
+            note.widthAnchor.constraint(equalToConstant: 700).isActive = true
+            maintenanceShortcuts.addItems(withTitles: ["brew doctor", "brew outdated", "brew missing", "brew linkage --test"])
+            let useShortcut = NSButton(title: "Use Shortcut", target: self, action: #selector(useMaintenanceShortcut))
+            let shortcutRow = NSStackView(views: [maintenanceShortcuts, useShortcut])
+            shortcutRow.spacing = 10
+            maintenanceCommand.placeholderString = "Enter one explicit command"
+            maintenanceCommand.widthAnchor.constraint(equalToConstant: 700).isActive = true
+            maintenanceCommand.target = self
+            maintenanceCommand.action = #selector(runMaintenanceCommand)
+            maintenanceRunButton.target = self
+            maintenanceRunButton.action = #selector(runMaintenanceCommand)
+            maintenanceRunButton.keyEquivalent = "\r"
+            maintenanceStopButton.target = self
+            maintenanceStopButton.action = #selector(stopMaintenanceCommand)
+            maintenanceStopButton.isEnabled = false
+            let buttons = NSStackView(views: [maintenanceRunButton, maintenanceStopButton])
+            buttons.spacing = 10
+            maintenanceOutput.isEditable = false
+            maintenanceOutput.isSelectable = true
+            maintenanceOutput.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+            let scroll = NSScrollView()
+            scroll.documentView = maintenanceOutput
+            scroll.hasVerticalScroller = true
+            scroll.borderType = .bezelBorder
+            scroll.widthAnchor.constraint(equalToConstant: 700).isActive = true
+            scroll.heightAnchor.constraint(equalToConstant: 330).isActive = true
+            let stack = NSStackView(views: [heading, note, shortcutRow, maintenanceCommand, buttons, scroll])
+            maintenanceWindow = makeWindow(title: "Maintenance Console", stack: stack, height: 570)
+            maintenanceWindow?.setContentSize(NSSize(width: 760, height: 570))
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        maintenanceWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func useMaintenanceShortcut() {
+        maintenanceCommand.stringValue = maintenanceShortcuts.titleOfSelectedItem ?? "brew doctor"
+        maintenanceWindow?.makeFirstResponder(maintenanceCommand)
+    }
+
+    private func appendMaintenanceOutput(_ text: String) {
+        maintenanceOutput.textStorage?.append(NSAttributedString(string: text))
+        maintenanceOutput.scrollToEndOfDocument(nil)
+        appendLog(text)
+    }
+
+    private func maintenanceLooksDestructive(_ command: String) -> Bool {
+        let pattern = "(^|[;&|]\\s*)(sudo\\s+)?(rm|rmdir|diskutil|dd|mkfs|shutdown|reboot)\\b|\\bbrew\\s+(uninstall|remove|cleanup|autoremove)\\b|\\bgit\\s+reset\\s+--hard\\b"
+        return command.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
+    @objc private func runMaintenanceCommand() {
+        var command = maintenanceCommand.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty, maintenanceProcess == nil else { return }
+        var arguments = ["maintenance"]
+        if command.hasPrefix("sudo ") {
+            command = String(command.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+            arguments.append("--administrator")
+        }
+        if maintenanceLooksDestructive(command) {
+            let alert = NSAlert()
+            alert.messageText = "Run destructive maintenance command?"
+            alert.informativeText = command
+            alert.alertStyle = .critical
+            alert.addButton(withTitle: "Run Command")
+            alert.addButton(withTitle: "Cancel")
+            NSApp.activate(ignoringOtherApps: true)
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            arguments.append("--confirmed")
+        }
+        arguments.append(command)
+        if !maintenanceHistory.contains(command) {
+            maintenanceHistory.append(command)
+            maintenanceShortcuts.addItem(withTitle: command)
+        }
+        launchConsoleClient(arguments, display: command)
+    }
+
+    private func launchConsoleClient(_ command: [String], display: String) {
+        guard maintenanceProcess == nil else { return }
+        guard FileManager.default.fileExists(atPath: configURL.path) else { openSettings(); return }
+        guard let (executable, arguments) = clientArguments(command) else {
+            showAlert(title: "Cannot run maintenance", message: "Python 3.9 or newer was not found.")
+            return
+        }
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        process.environment = normalizedEnvironment()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        process.standardInput = FileHandle.nullDevice
+        maintenanceProcess = process
+        maintenanceRunButton.isEnabled = false
+        maintenanceStopButton.isEnabled = true
+        appendMaintenanceOutput("\n$ \(display)\n")
+        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+            DispatchQueue.main.async { self?.appendMaintenanceOutput(text) }
+        }
+        process.terminationHandler = { [weak self] process in
+            pipe.fileHandleForReading.readabilityHandler = nil
+            let tail = pipe.fileHandleForReading.readDataToEndOfFile()
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let text = String(data: tail, encoding: .utf8), !text.isEmpty { self.appendMaintenanceOutput(text) }
+                self.appendMaintenanceOutput("\n[exit code \(process.terminationStatus)]\n")
+                self.maintenanceProcess = nil
+                self.maintenanceRunButton.isEnabled = true
+                self.maintenanceStopButton.isEnabled = false
+                self.refreshStatus()
+            }
+        }
+        do { try process.run() }
+        catch {
+            maintenanceProcess = nil
+            maintenanceRunButton.isEnabled = true
+            maintenanceStopButton.isEnabled = false
+            appendMaintenanceOutput("\(error)\n[exit code -1]\n")
+        }
+    }
+
+    @objc private func stopMaintenanceCommand() {
+        guard let process = maintenanceProcess else { return }
+        maintenanceStopButton.isEnabled = false
+        appendMaintenanceOutput("\n[stop requested]\n")
+        process.terminate()
+    }
+
     @objc private func openSettings() {
         guard activeProcess == nil, settingsProcess == nil else { return }
         if setupWindow == nil {
@@ -945,7 +1148,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             exit(1)
         }
         workflowDeadline = Date().addingTimeInterval(120)
-        runInteractive(command: ["upgrade"], activity: "Busy/Fixture upgrade")
+        workflowPhase = -1
+        refreshStatus()
         workflowTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             self?.advanceWorkflowSmoke(root)
         }
@@ -958,6 +1162,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             try require(Date() < workflowDeadline, "Workflow timed out at phase \(workflowPhase)")
             switch workflowPhase {
+            case -1:
+                guard statusProcess == nil else { return }
+                try require(pendingRun == nil, "Backend idle did not clear stale GUI run after cold launch")
+                try require(upgradeItem.isEnabled && installItem.isEnabled && syncItem.isEnabled,
+                            "Backend idle did not unlock normal actions")
+                workflowPhase = 0
+                runInteractive(command: ["upgrade"], activity: "Busy/Fixture upgrade")
             case 0:
                 guard activeProcess == nil else { return }
                 try require(pendingRun?.state.failed_count == 1, "First technical error must pause")
@@ -999,7 +1210,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 try require(pendingRun == nil, "Stop/Resume must finish")
                 let report: [String: Any] = ["pause_on_first_error": true, "sticky_failed_count": true,
                     "retry_only_failed": true, "resume_remaining": true, "stop_child_cleanup": true,
-                    "stop_resume": true, "quit_while_busy": true, "isolated_configuration": true]
+                    "stop_resume": true, "quit_while_busy": true, "isolated_configuration": true,
+                    "cold_launch_stale_ui_reconciled": true]
                 let data = try JSONSerialization.data(withJSONObject: report, options: .prettyPrinted)
                 try data.write(to: root.appendingPathComponent("workflow-smoke.json"))
                 workflowTimer?.invalidate()
@@ -1143,16 +1355,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func quitApp() {
-        if activeProcess != nil {
+        if activeProcess != nil || maintenanceProcess != nil {
             let alert = NSAlert()
             alert.messageText = "Stop the current operation and quit?"
-            alert.informativeText = "The process will stop in a controlled way. The saved queue remains available for Retry or Resume after reopening."
+            alert.informativeText = "The process will stop in a controlled way. Any saved queue remains available for Retry or Resume after reopening."
             alert.addButton(withTitle: "Stop & Quit")
             alert.addButton(withTitle: "Cancel")
             NSApp.activate(ignoringOtherApps: true)
             if alert.runModal() == .alertFirstButtonReturn {
-                quitAfterStop = true
-                stopRun()
+                if activeProcess != nil {
+                    quitAfterStop = true
+                    stopRun()
+                } else {
+                    maintenanceProcess?.terminationHandler = { _ in DispatchQueue.main.async { NSApp.terminate(nil) } }
+                    maintenanceProcess?.terminate()
+                }
             }
             return
         }
@@ -1162,7 +1379,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        if activeProcess != nil {
+        if activeProcess != nil || maintenanceProcess != nil {
             quitApp()
             return .terminateCancel
         }

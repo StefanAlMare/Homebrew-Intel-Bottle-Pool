@@ -82,7 +82,8 @@ def run_command(argv, *, env=None, cwd=None, stream=False, interrupt_timeout=8, 
     """All Brew/Git/producer children inherit a private session, never the GUI's."""
     check_stop()
     process = subprocess.Popen(argv, env=env, cwd=cwd, stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE, start_new_session=True)
+                               stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,
+                               start_new_session=True)
     if os.environ.get("HOMEBREW_POOL_GUI") == "1":
         print("HOMEBREW_POOL_PROCESS_GROUP=" + str(process.pid), flush=True)
     stdout, stderr = [], []

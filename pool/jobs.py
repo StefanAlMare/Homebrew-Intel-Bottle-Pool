@@ -53,6 +53,21 @@ class Job:
                     current=self.data.get("current", "") if self.data else "",
                     command=self.data.get("command", "") if self.data else "", resume_command=command)
 
+    def reconcile(self):
+        """Normalize terminal records without discarding audit history or artifacts."""
+        if not self.data:
+            return False
+        if not self.remaining and not self.failures and self.data.get("status") in (
+                "paused", "paused_error", "stopped", "resolved", "completed"):
+            changed = self.data.get("status") != "resolved" or bool(self.data.get("current"))
+            self.data["status"] = "resolved"
+            self.data["current"] = ""
+            self.data["reviewed"] = True
+            if changed:
+                self.save()
+            return changed
+        return False
+
     def save(self):
         atomic_json(self.path, self.data)
 

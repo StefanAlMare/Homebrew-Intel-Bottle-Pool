@@ -1,71 +1,98 @@
-# Validation — Homebrew Intel Bottle Pool 0.3.2
+# Validation — Homebrew Intel Bottle Pool 0.3.3
 
 Validation date: 7 October 2026.
 
 ## Release result
 
-The final Intel x86_64 application and DMG were signed with Developer ID,
-notarized by Apple, and stapled. Strict signature checks, stapler validation,
-Gatekeeper assessment, and read-only DMG verification passed for the application,
-the app extracted from the ZIP, and the app mounted from the DMG.
+The final application is `0.3.3` build `33`, Intel `x86_64`, with a macOS 12
+deployment target. It was signed with Developer ID Application certificate
+SHA-1 `9FEDAF606F7CB05FC9FB2DB6B31C5F518BD78724`, Team ID `YWVVK7QZ6X`, Hardened
+Runtime and an Apple timestamp.
 
-The embedded Python client matched the final source byte-for-byte. The release did
-not embed the configured private pool URL or token. The source release excludes
-local configuration, credentials, Keychain data, notarization receipts, internal
-logs, temporary builds, and private handover notes.
+Apple Notary accepted both final submissions:
 
-## Automated and workflow validation
+- app receipt: `e8b1b22f-ec8a-4e36-bb1a-a733010106fd`;
+- DMG receipt: `564dca8e-e59e-4ce9-817c-911c8613f3e0`.
 
-All 94 automated tests passed. Coverage includes:
+The app and DMG were stapled successfully. `stapler validate` and Gatekeeper
+assessment passed for both, with `source=Notarized Developer ID`. Apple logs
+reported `issues: null`.
 
-- HTTP authentication, schema checks, SHA-256 integrity, atomic publication,
-  leases, heartbeat/fencing, recovery, and durable offline spool behavior;
-- formula dependency handling, official/local bottle paths, Cask caching,
-  external adapters, version ordering, prefix/context separation, and retry;
-- Setup/Settings configuration, Token/Token File, optional CA, Test Connection,
-  Update & Upgrade, Install Auto/Formula/Cask, Sync now, and Start at Login;
-- Healthy, Busy, Action Required, Paused — Error, and stopped/paused states;
-- persisted queues, retry-only-failures, resume, resolve/skip, cancel, Stop, and
-  safe process-group termination;
-- preflight migration of recognized official legacy remotes using fast-forward
-  only, while refusing dirty, detached, ahead, divergent, or ambiguous repos;
-- calendar versions, sanitized dependency output, tap root URLs, and GUI PATH.
+## Automated and native workflow validation
 
-An isolated Homebrew smoke test compiled and tested a small C formula, published
-its bottle, and reinstalled it from the pool with source building disabled. A
-deterministic test Cask was also republished and reinstalled after its upstream
-copy was made unavailable. The test used temporary Homebrew/cache/config/storage
-locations and did not update or modify the operator's normal Homebrew installation.
+All **104 automated tests** passed on the final source. Coverage includes:
 
-Native UI workflow tests verified readable Setup and Install dialogs, distinct
-menu-bar state symbols, paused/error controls, Stop, and Quit behavior. The app
-does not collect administrator passwords; macOS SecurityAgent handles system
-authorization where supported.
+- server schema 1, authentication, leases, atomic publication, SHA-256,
+  fencing, offline spool and protocol compatibility;
+- formula/Cask installation, local and official bottles, dependency contexts,
+  date versions, warning filtering, external `root_url`, Intel PATH and safe
+  fetch + fast-forward-only remote repair;
+- durable queue pause/retry/resume/resolve/cancel, Action Required, Stop/Quit and
+  process-group cleanup;
+- stale GUI state versus authoritative backend `idle/resolved`, including a
+  stopped cache with zero failures and zero remaining work;
+- runtime dependency traversal before the dependent formula's current/build
+  shortcut, paused-queue-preserving dependency repair, `brew missing` and
+  `brew linkage --test` revalidation;
+- maintenance command classification, destructive-command confirmation, closed
+  stdin, shared/exclusive locking, exit path and permanent recovery controls;
+- app metadata, version `0.3.3` build `33`, embedded client, signature checks and
+  installer preservation of the existing configuration.
+
+The compiled GUI workflow passed these isolated checks:
+
+- cold launch with `pending-run.json` saying Stopped while backend has no
+  `job.json` and reports idle;
+- immediate clearing of the stale UI cache and unlocking of Update & Upgrade,
+  Install and Sync;
+- pause on first error, persistent failed count, retry only failures, resume
+  remaining work, controlled Stop of a detached child and subsequent resume;
+- Quit availability and complete fixture/config isolation.
+
+The opt-in real Homebrew smoke test also passed in a disposable prefix. It built
+and tested a small C formula, published a bottle, uninstalled it, then reinstalled
+and tested it from the pool with source builds disabled. A deterministic Cask
+was published, removed, its upstream archive hidden, and then installed again
+from the pool. The operator's normal Homebrew prefix and installed packages were
+not upgraded or modified.
 
 ## Platform used
 
-The final build was produced and validated on one Intel x86_64 Mac with a macOS 12
-deployment target and Python 3.14. The application requires Python 3.9 or newer at
-runtime. Homebrew is required, and Apple Command Line Tools are required when a
-formula must be compiled from source.
+- macOS 26.7.1 (build 25G241), Intel x86_64;
+- Python 3.14.8 for validation; runtime minimum remains Python 3.9;
+- Xcode/Apple Command Line Tools available for the Swift and formula builds.
+
+## Security and recovery properties checked
+
+- modifying maintenance commands and pool-aware repair use the same exclusive
+  Homebrew lock as upgrade/install jobs;
+- read-only diagnostics use a shared lock and do not overlap a writer;
+- command stdin is `/dev/null`; commands are launched only from explicit user
+  input and never inferred from logs;
+- destructive patterns require GUI confirmation;
+- a leading `sudo` uses macOS native administrator authorization; the app does
+  not receive or store the password;
+- Repair Pool State and queue cancellation preserve configuration, token, spool,
+  installed software and already completed bottle artifacts;
+- the signed application bundle does not self-modify; code fixes require a later
+  signed/notarized release.
 
 ## Known limits
 
-- Validation used one Intel Mac and small fixtures, not every supported macOS
-  release or a production fleet upgrade.
-- NAS/TrueNAS deployment, WAN/VPN behavior, and two simultaneous physical Macs
-  were not exercised in the final local pilot.
-- Bottle reuse still depends on platform, macOS context, prefix/Cellar, formula
-  metadata, options, and relevant dependency/ABI context.
-- Third-party repositories that disappeared or changed identity are never guessed;
-  ambiguous, dirty, detached, or divergent taps require manual review.
-- Mutable Casks (`latest` or `no_check`) are upstream-only and are not published.
-- The service uses one bearer token for the trusted private pool and does not
-  provide per-artifact ACLs.
-- HTTP plus a token must not be exposed directly to the Internet; use HTTPS, a
-  VPN, or a protected private LAN.
+- The exact 47-minute CMake and 31-minute coreutils production build was not
+  repeated. Its failure mode is covered by dependency-order and queue-recovery
+  regression fixtures plus the isolated real Formula/Cask pilots.
+- Validation used one physical Intel Mac, not every supported macOS release or a
+  multi-Mac production fleet.
+- NAS/TrueNAS deployment and WAN/VPN failure behavior were not rerun for 0.3.3;
+  the schema-1 server protocol was kept unchanged and covered by local tests.
+- The console deliberately has closed stdin and is not a general interactive
+  TTY. Normal stdout/stderr is live; administrator commands may be buffered by
+  the native macOS authorization bridge until completion.
+- Bottle reuse remains constrained by platform, prefix/Cellar, formula source,
+  options and dependency/ABI context.
+- Mutable Casks remain upstream-only, and ambiguous/dirty/divergent taps still
+  require explicit review.
 
-Homebrew Intel Bottle Pool is independent software. It is not Homebrew, and it is
-not affiliated with or endorsed by Homebrew.
-
-Created by StefanAlMare and developed together with ChatGPT by OpenAI.
+No GitHub repository, release, Actions workflow or CI resource was created or
+modified during this local release.

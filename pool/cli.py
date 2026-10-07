@@ -13,6 +13,9 @@ from .common import PoolError, atomic_json
 from .settings import check_connection, configure_gui
 from .jobs import Job
 from .processes import JobStopped, install_stop_handlers
+from .maintenance import run_maintenance
+
+VERSION = "0.3.3"
 
 
 def default_config():
@@ -21,6 +24,7 @@ def default_config():
 
 def main(argv=None):
     p = argparse.ArgumentParser(description="Cooperative Intel Homebrew and external artifact pool")
+    p.add_argument("--version", action="version", version="Homebrew Intel Bottle Pool " + VERSION)
     p.add_argument("--config", default=str(default_config()))
     commands = p.add_subparsers(dest="command", required=True)
     setup = commands.add_parser("configure")
@@ -34,6 +38,16 @@ def main(argv=None):
     commands.add_parser("sync")
     job_command = commands.add_parser("job", help="Review, resolve, or cancel the saved queue")
     job_command.add_argument("action", choices=("review", "resolve", "cancel"))
+    repair = commands.add_parser("repair", help="Repair a dependency or reconcile pool state")
+    repair_sub = repair.add_subparsers(dest="repair_action", required=True)
+    repair_dependency = repair_sub.add_parser("dependency")
+    repair_dependency.add_argument("name")
+    repair_state = repair_sub.add_parser("state")
+    repair_state.add_argument("--cancel", action="store_true")
+    maintenance = commands.add_parser("maintenance", help="Run one explicit maintenance command")
+    maintenance.add_argument("--administrator", action="store_true")
+    maintenance.add_argument("--confirmed", action="store_true")
+    maintenance.add_argument("command")
     settings = commands.add_parser("settings", help="GUI configuration JSON on stdin; secrets never in argv")
     settings.add_argument("--save", action="store_true")
     install = commands.add_parser("install")
@@ -63,7 +77,7 @@ def main(argv=None):
     fetch.add_argument("--recipe", required=True)
     fetch.add_argument("destination")
     args = p.parse_args(argv)
-    if args.command in ("upgrade", "install", "sync", "refresh", "publish", "fetch"):
+    if args.command in ("upgrade", "install", "sync", "refresh", "publish", "fetch", "repair", "maintenance"):
         install_stop_handlers()
     try:
         config_path = Path(args.config).expanduser()
@@ -94,7 +108,9 @@ def main(argv=None):
             except Unavailable:
                 connected = False
             queued = len(list(client.spool.glob("entry-*/manifest.json")))
-            job = Job(client.state).report()
+            saved_job = Job(client.state)
+            saved_job.reconcile()
+            job = saved_job.report()
             if args.json:
                 state = job["status"] if job["failed_count"] or job["remaining_count"] else "healthy" if connected and queued == 0 else "spooling"
                 print(json.dumps({"connected": connected, "spool_entries": queued,
@@ -108,6 +124,22 @@ def main(argv=None):
                 if args.action != "review":
                     job.resolve(cancel=args.action == "cancel")
                 job.emit()
+        elif args.command == "repair":
+            if args.repair_action == "dependency":
+                with local_lock(client.state):
+                    print("Repaired dependency: " + Brew(client).repair_dependency(args.name))
+            else:
+                with local_lock(client.state):
+                    job = Job(client.state)
+                    if args.cancel:
+                        job.resolve(cancel=True)
+                    else:
+                        job.reconcile()
+                    job.emit()
+        elif args.command == "maintenance":
+            run_maintenance(args.command, client.state, administrator=args.administrator,
+                            confirmed=args.confirmed)
+            print("HOMEBREW_POOL_EXIT_CODE=0", flush=True)
         elif args.command == "sync":
             results = client.sync()
             print(json.dumps(results))

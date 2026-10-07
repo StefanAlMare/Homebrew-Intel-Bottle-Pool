@@ -72,6 +72,16 @@ def main():
         config.parent.mkdir(parents=True)
         config.write_text(json.dumps(dict(url="http://127.0.0.1:9", token_file=str(root / "token"),
             state_dir=str(root / "state"), brew=str(brew), timeout=0.1, artifacts=[], python=sys.executable)))
+        support = root / "support"
+        support.mkdir()
+        # Exact reboot/cold-launch regression: GUI cache says stopped while the
+        # authoritative backend has no job.json and therefore reports idle.
+        (support / "pending-run.json").write_text(json.dumps({
+            "state": {"status": "stopped", "failed_count": 0, "remaining_count": 0,
+                      "failures": [], "current": "", "command": "upgrade",
+                      "resume_command": ["upgrade"]},
+            "command": ["upgrade"], "activity": "Busy/Resuming"
+        }))
         env = dict(os.environ, XDG_CONFIG_HOME=str(root / "config"), POOL_PYTHON=sys.executable,
                    POOL_FIXTURE_ROOT=str(root), HOMEBREW_NO_AUTO_UPDATE="1")
         result = subprocess.run([str(app), "--workflow-smoke", str(root)], env=env,

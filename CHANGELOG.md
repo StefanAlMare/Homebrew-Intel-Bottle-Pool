@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.3 — 7 octombrie 2026
+
+- Reconciliere backend-authoritative la cold launch, deschiderea meniului și la
+  fiecare 10 secunde. Un job fără erori/restanțe deblochează explicit Update &
+  Upgrade, Install și Sync, chiar dacă GUI cache-ul arată vechiul Stopped.
+- Repară ordinea grafului: dependențele runtime sunt aduse la zi înainte ca
+  formula dependentă să fie considerată current sau să fie construită/publicată.
+- Adaugă `Repair / Install Dependency…`, inclusiv pentru `openssl@3`, fără a
+  distruge coada; după reparare rulează `brew missing` și `brew linkage --test`.
+- Adaugă `Repair Pool State…`: resync UI sau anulare explicită a cozii, păstrând
+  instalațiile, bottle-urile, configurația, tokenul și spool-ul.
+- Adaugă consola de mentenanță permanent disponibilă: input explicit, output
+  stdout/stderr live, istoric în sesiune, Stop Command, exit code și shortcut-uri
+  doctor/outdated/missing/linkage.
+- Serializează toate comenzile care modifică Homebrew cu lock-ul jobului;
+  diagnosticele folosesc shared lock și nu se suprapun peste un writer.
+- Închide stdin pentru procesele lansate, nu execută texte din loguri, cere
+  confirmare pentru comenzi distructive și delegă autentificarea de administrator
+  dialogului nativ macOS fără colectarea parolei.
+- Păstrează protocolul server schema 1 și toate funcțiile 0.3.2; adaugă suita
+  `tests/test_v033.py` pentru stale UI, dependențe, lock și securitatea consolei.
+
 ## 0.3.2 — 7 octombrie 2026
 
 - Adaugă ghidul complet `INSTALLATION.md` pentru server, HTTPS/VPN, storage,

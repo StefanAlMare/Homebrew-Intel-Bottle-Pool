@@ -11,8 +11,8 @@ Runtime and an Apple timestamp.
 
 Apple Notary accepted both final submissions:
 
-- app receipt: `e8b1b22f-ec8a-4e36-bb1a-a733010106fd`;
-- DMG receipt: `564dca8e-e59e-4ce9-817c-911c8613f3e0`.
+- app receipt: `a801dacc-4a0c-48ff-8830-3f944533175d`;
+- DMG receipt: `11347a9a-7ea3-42f4-9879-7b9ca2a32133`.
 
 The app and DMG were stapled successfully. `stapler validate` and Gatekeeper
 assessment passed for both, with `source=Notarized Developer ID`. Apple logs

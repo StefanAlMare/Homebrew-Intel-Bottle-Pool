@@ -1,0 +1,16 @@
+services:
+  bottle-pool:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - /srv/homebrew-pool:/srv/homebrew-pool
+      - /run/secrets/pool.token:/run/secrets/pool.token:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

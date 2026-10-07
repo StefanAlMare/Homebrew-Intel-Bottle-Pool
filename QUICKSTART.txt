@@ -1,0 +1,53 @@
+Homebrew Intel Bottle Pool 0.3.0 — Quick Start
+
+Requirements
+  Intel x86_64 Mac, macOS 12+, Homebrew, and Python 3.9+.
+  Apple Command Line Tools are required for source builds.
+
+Install
+  1. Verify the downloaded files with SHA256SUMS.txt.
+  2. Open the DMG and drag Homebrew Pool.app to Applications.
+  3. Launch it from Applications. Setup opens on a new Mac.
+
+Configure
+  Server URL: https://pool.example.internal
+  Token File: /run/secrets/pool.token
+  CA: optional private CA certificate
+
+  Choose Test Connection, then Save & Finish. A pasted token is copied to a
+  private 0600 file. Never commit a real URL, token, certificate, or config.
+
+Use
+  Update & Upgrade  Run the coordinated Homebrew workflow.
+  Install…          Choose Auto, Formula, or Cask.
+  Sync now          Retry queued offline publications.
+  Settings…         Change URL/token/CA settings.
+  Start at Login    Optional and controlled by the current user.
+
+States
+  Healthy/Connected Connected; no queued work.
+  Offline/Spooling  Server unavailable or local results await upload.
+  Busy              Building, installing, updating, or syncing.
+  Error             Configuration, runtime, or the last command needs attention.
+
+Version 0.3.0 reports failures through Error and Open logs. It does not implement
+the persistent Paused/Retry/Resume workflow added by later development builds.
+
+Private server
+  Run the service on an always-on NAS, TrueNAS system, Linux/home server, or
+  equivalent host with persistent storage:
+
+  python3 -m pool.server \
+    --root /srv/homebrew-pool \
+    --bind 127.0.0.1 --port 8765 \
+    --token-file /run/secrets/pool.token
+
+  Put a private HTTPS reverse proxy or VPN in front of loopback, or bind only to
+  an appropriate protected-LAN interface with TLS configured. Never expose plain
+  HTTP plus the token directly to the Internet.
+
+Verify
+  shasum -a 256 -c SHA256SUMS.txt
+
+Read README.md for architecture/security and VALIDATION.md for tested behavior
+and limitations. This project is independent and is not affiliated with Homebrew.

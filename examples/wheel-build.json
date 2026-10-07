@@ -1,0 +1,13 @@
+{
+  "name": "wheel/example-package",
+  "version": "1.0.0",
+  "version_order": [1, 0, 0, 0],
+  "platform": "macos-x86_64-tahoe",
+  "variant": "cp313-macos_26_0_x86_64",
+  "filename": "example_package-1.0.0-cp313-cp313-macosx_26_0_x86_64.whl",
+  "destination": "./wheelhouse/example_package-1.0.0-cp313-cp313-macosx_26_0_x86_64.whl",
+  "source": "Reviewed package source and pinned build requirements",
+  "context": {"python_abi": "cp313", "deployment_target": "26.0", "requirements_lock_sha256": "REPLACE"},
+  "command": ["/path/to/reviewed-wheel-builder", "--output", "{output}"],
+  "enabled": false
+}

@@ -1,0 +1,39 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.local-test/
+
+# Build products and internal validation evidence
+build/
+dist/
+validation/
+HANDOVER.md
+verify_release.py
+finalize-release.sh
+*-notarization*.json
+release-verification*.json
+*.log
+*.tmp
+
+# Private configuration and secrets
+.env
+.env.*
+config.json
+*.local.json
+*.private.*
+*.token
+*.secret
+secrets/
+credentials/
+*.key
+*.pem
+*.p12
+*.pfx
+*.keychain
+*.keychain-db
+*.mobileprovision
+
+# CI is intentionally not part of this project
+.github/workflows/

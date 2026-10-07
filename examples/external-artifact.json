@@ -1,0 +1,14 @@
+{
+  "name": "example/toolchain-package",
+  "kind": "external",
+  "version": "2.1.0",
+  "version_order": [2, 1, 0, 0],
+  "platform": "macos-x86_64-tahoe",
+  "variant": "default-prefix-independent",
+  "filename": "toolchain-2.1.0.pkg",
+  "destination": "./toolchain-2.1.0.pkg",
+  "source": "Replace with reviewed vendor release URL and license",
+  "url": "https://example.invalid/releases/toolchain-2.1.0.pkg",
+  "sha256": "REPLACE_WITH_REVIEWED_UPSTREAM_SHA256",
+  "enabled": false
+}

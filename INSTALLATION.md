@@ -3,6 +3,12 @@
 This guide covers the complete private deployment: one central server and every
 Intel Mac that will use it.
 
+All Macs are equal peers; there is no dedicated builder machine. Every enrolled
+Mac authenticates to the same server and can both consume and contribute. A Mac
+may reuse package A, build and publish package B, then publish a verified Cask or
+external adapter update. Other compatible Macs can immediately reuse each result.
+The server coordinates and stores this exchange but does not compile packages.
+
 Public examples use only these placeholders:
 
 ```text
@@ -30,6 +36,21 @@ The host needs:
 The server does not compile Homebrew formulae. Compilation happens on the Macs.
 The server only authenticates clients, coordinates leases, verifies SHA-256, and
 stores or serves artifacts.
+
+### Peer workflow across Mac 1 … Mac N
+
+Every Mac performs the same loop:
+
+1. authenticate with the private token over HTTPS/VPN;
+2. identify the required artifact and compatibility context;
+3. fetch and verify it when a compatible copy already exists;
+4. on a miss, claim the online lease and obtain/build/test the artifact locally;
+5. publish it immediately or retain it in the local spool until Sync now succeeds;
+6. make the result available to every other compatible peer.
+
+Roles can change for every package. Mac 1 may produce one formula, Mac 2 another,
+Mac 3 a Cask or adapter payload, and Mac N the next missing compatible variant.
+No configuration designates any Mac as only a builder or only a consumer.
 
 Do not use an SMB/NFS mount as the server's active data root. Run the service on
 the machine that has local access to the persistent storage. Only one server
@@ -176,14 +197,18 @@ copy one Mac's entire config blindly to another; configure and test each machine
 
 Start with a small formula that is appropriate for the Mac:
 
-1. On the first Mac, use **Install…** or **Update & Upgrade** and let it obtain or
-   build the artifact, test it, and publish it.
+1. On any enrolled Mac, use **Install…** or **Update & Upgrade** and let it obtain
+   or build the artifact, test it, and publish it.
 2. Choose **Sync now** and confirm the local spool becomes empty.
 3. On a second compatible Mac, request the same formula.
 4. Confirm the log reports reuse from the pool rather than another source build.
 5. Run the formula's normal command or Homebrew test/linkage checks.
 
-Only then roll out a broad Update & Upgrade across the remaining Macs.
+6. Reverse the direction for another small package: let the second Mac publish it
+   and confirm the first Mac can reuse it. This proves that both are equal peers.
+
+Only then roll out a broad Update & Upgrade across the remaining Macs. Any one of
+them may become the producer for a different missing compatible artifact.
 
 ## 11. Understand compatibility boundaries
 
@@ -195,7 +220,37 @@ variants separate and will build again rather than force an unsafe bottle.
 Casks with fixed versions and SHA-256 values can be reused. Mutable `latest` or
 `no_check` Casks are upstream-only and are never published to the pool.
 
-## 12. Daily operation and recovery
+## 12. Storage retention and cleanup
+
+The active server pool is intentionally bounded by compatibility slots. For each
+exact `(kind, name, platform, variant)` slot, only the newest valid artifact is
+kept. When a newer upgrade is published, the server first verifies and commits it
+atomically, then removes the older blob for that same slot. Repeated upgrades do
+not accumulate a complete version history in `/srv/homebrew-pool`.
+
+Separate compatible variants remain separate. For example, two macOS or Homebrew
+prefix contexts may each retain their newest bottle because one cannot safely
+replace the other.
+
+Client spool cleanup is confirmation-based:
+
+- published, already-present, or superseded entries are removed locally;
+- offline, busy, failed, or conflicting entries stay in the spool for retry or
+  review, preventing silent loss of a completed build;
+- incomplete server uploads and unreferenced blobs are cleaned automatically.
+
+Storage operators must account for two independent retention layers:
+
+- ZFS/NAS snapshots and backups can continue to retain blocks deleted from the
+  active pool; configure their retention and quotas separately;
+- old Homebrew kegs and download caches on each Mac are not deleted by this
+  project. After verifying an upgrade, use Homebrew's own cleanup policy or
+  commands if local disk space must be reclaimed.
+
+Therefore, checking active pool size, snapshot usage, each Mac's spool, and each
+Mac's Homebrew cache are four different capacity checks.
+
+## 13. Daily operation and recovery
 
 - **Healthy** means the server responds and the local spool is empty.
 - **Busy** means a requested install, update, build, or sync is running.

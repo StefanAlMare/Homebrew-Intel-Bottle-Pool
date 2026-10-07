@@ -27,7 +27,7 @@ cp "$project_dir/pool/"*.py "$app/Contents/Resources/client/pool/"
 CLANG_MODULE_CACHE_PATH="$build_dir/module-cache" \
 SWIFT_MODULECACHE_PATH="$build_dir/module-cache" \
 swiftc -swift-version 5 -O -target x86_64-apple-macos12.0 \
-  -framework AppKit -framework Foundation \
+  -framework AppKit -framework Foundation -framework UserNotifications \
   "$project_dir/macos/HomebrewPoolMenu.swift" \
   -o "$app/Contents/MacOS/HomebrewPoolMenu"
 if [ -n "${SIGNING_IDENTITY-}" ]; then
@@ -48,17 +48,18 @@ if [ "$app_only" -eq 1 ]; then
   exit 0
 fi
 
-ditto -c -k --sequesterRsrc --keepParent "$app" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.0.zip"
+ditto -c -k --sequesterRsrc --keepParent "$app" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.2.zip"
 
 dmg_root="$build_dir/dmg"
 mkdir -p "$dmg_root"
 ditto "$app" "$dmg_root/Homebrew Pool.app"
 ln -s /Applications "$dmg_root/Applications"
 cp "$project_dir/QUICKSTART.txt" "$dmg_root/Read Me.txt"
-hdiutil create -quiet -volname "Homebrew Pool 0.3.0" -srcfolder "$dmg_root" \
-  -ov -format UDZO "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.0.dmg"
+cp "$project_dir/LICENSE" "$dmg_root/License.txt"
+hdiutil create -quiet -volname "Homebrew Pool 0.3.2" -srcfolder "$dmg_root" \
+  -ov -format UDZO "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.2.dmg"
 if [ -n "${SIGNING_IDENTITY-}" ]; then
-  codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.0.dmg"
+  codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.2.dmg"
 fi
 echo "Built: $app"
-echo "Built: $dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.0.dmg"
+echo "Built: $dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.2.dmg"

@@ -140,7 +140,7 @@ class InstallTests(Fixture):
         mac.cask_record.update(version="latest", sha256="no_check")
         with self.assertRaisesRegex(PoolError, "cannot be pooled"):
             mac.install("browser", "cask", update=False)
-        mac.install("browser", "cask", update=False, allow_mutable_cask=True)
+        mac.install("browser", "cask", update=False, allow_mutable_cask=True, mode="resume")
         self.assertIn(("install", "--cask", "browser"), mac.calls)
         self.assertFalse(list(self.store.objects.glob("*/manifest.json")))
 

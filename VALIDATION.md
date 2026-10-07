@@ -1,4 +1,4 @@
-# Validation — Homebrew Intel Bottle Pool 0.3.0
+# Validation — Homebrew Intel Bottle Pool 0.3.2
 
 Validation date: 7 October 2026.
 
@@ -16,7 +16,7 @@ logs, temporary builds, and private handover notes.
 
 ## Automated and workflow validation
 
-All 50 automated tests passed. Coverage includes:
+All 94 automated tests passed. Coverage includes:
 
 - HTTP authentication, schema checks, SHA-256 integrity, atomic publication,
   leases, heartbeat/fencing, recovery, and durable offline spool behavior;
@@ -24,9 +24,12 @@ All 50 automated tests passed. Coverage includes:
   external adapters, version ordering, prefix/context separation, and retry;
 - Setup/Settings configuration, Token/Token File, optional CA, Test Connection,
   Update & Upgrade, Install Auto/Formula/Cask, Sync now, and Start at Login;
-- Healthy/Connected, Offline/Spooling, Busy, and Error states;
-- safe tap synchronization using fast-forward only while refusing dirty,
-  detached, or divergent repositories.
+- Healthy, Busy, Action Required, Paused — Error, and stopped/paused states;
+- persisted queues, retry-only-failures, resume, resolve/skip, cancel, Stop, and
+  safe process-group termination;
+- preflight migration of recognized official legacy remotes using fast-forward
+  only, while refusing dirty, detached, ahead, divergent, or ambiguous repos;
+- calendar versions, sanitized dependency output, tap root URLs, and GUI PATH.
 
 An isolated Homebrew smoke test compiled and tested a small C formula, published
 its bottle, and reinstalled it from the pool with source building disabled. A
@@ -34,8 +37,8 @@ deterministic test Cask was also republished and reinstalled after its upstream
 copy was made unavailable. The test used temporary Homebrew/cache/config/storage
 locations and did not update or modify the operator's normal Homebrew installation.
 
-Native UI workflow tests verified readable Setup and Install dialogs and the
-menu-bar workflow. The app
+Native UI workflow tests verified readable Setup and Install dialogs, distinct
+menu-bar state symbols, paused/error controls, Stop, and Quit behavior. The app
 does not collect administrator passwords; macOS SecurityAgent handles system
 authorization where supported.
 
@@ -64,3 +67,5 @@ formula must be compiled from source.
 
 Homebrew Intel Bottle Pool is independent software. It is not Homebrew, and it is
 not affiliated with or endorsed by Homebrew.
+
+Created by StefanAlMare and developed together with ChatGPT by OpenAI.

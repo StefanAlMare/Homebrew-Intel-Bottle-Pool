@@ -2,6 +2,10 @@
 
 A private, shared bottle pool for people who still use Intel Macs.
 
+Created and maintained by **StefanAlMare**, developed together with
+**ChatGPT by OpenAI** for design, implementation, testing, documentation, and
+release engineering.
+
 > **Build once. Store once. Reuse across compatible Intel Macs.**
 
 Homebrew no longer produces bottles for current Intel macOS configurations. As a
@@ -41,7 +45,7 @@ The pool server can run on a NAS, TrueNAS system, Linux server, home server, or
 another always-on host with persistent storage and reliable connectivity. The
 backend uses Python's standard library and requires no third-party Python package.
 
-## Release 0.3.0
+## Release 0.3.2
 
 The menu-bar application provides:
 
@@ -52,12 +56,14 @@ The menu-bar application provides:
 - **Sync now** for queued offline results;
 - **Settings…** for later configuration changes;
 - user-controlled **Start at Login**;
-- distinct **Healthy/Connected**, **Offline/Spooling**, **Busy**, and **Error**
-  states.
+- distinct **Healthy**, **Busy**, **Action Required**, and **Paused — Error**
+  states, plus a stopped/paused state when a queue is preserved.
 
-Operations run only after an explicit user action. Errors remain visible through
-the status and logs; version 0.3.0 does not implement the later persistent
-Paused/Retry/Resume workflow.
+At the first technical error, the queue pauses before the next package. The app
+can review errors, retry only failed work, resume remaining work, explicitly skip
+failed work, or cancel the saved queue. While work is running, Stop is available
+and Quit offers Stop & Quit. Decisions that cannot safely be automated appear as
+Action Required.
 
 The preflight step checks the Brew repository and installed taps. It repairs only
 recognized official legacy URLs and unambiguous missing upstream configuration,
@@ -188,7 +194,7 @@ Only use the pool among machines and operators you trust.
 
 ## Validation and checksums
 
-Release 0.3.0 passed 50 automated tests, isolated real-Homebrew formula/Cask smoke
+Release 0.3.2 passed 94 automated tests, isolated real-Homebrew formula/Cask smoke
 tests, native GUI workflow checks, strict code-signature checks, Apple
 notarization, stapling, Gatekeeper assessment, and DMG verification. Details and
 known limitations are in [VALIDATION.md](VALIDATION.md).
@@ -220,4 +226,27 @@ and ensures Homebrew compilation happens only where it is useful: on the Intel
 Macs participating in the private pool.
 
 See [QUICKSTART.txt](QUICKSTART.txt), [VALIDATION.md](VALIDATION.md),
-[CHANGELOG.md](CHANGELOG.md), and [LICENSE](LICENSE).
+[INSTALLATION.md](INSTALLATION.md), [CHANGELOG.md](CHANGELOG.md), and
+[LICENSE](LICENSE).
+
+## Credits
+
+- **StefanAlMare** — project creator, owner, requirements, product direction,
+  infrastructure context, validation decisions, and release authorization.
+- **ChatGPT by OpenAI** — collaborative implementation, debugging, testing,
+  documentation, security review, and release preparation.
+
+The project remains independent from Homebrew; neither contributor attribution
+implies affiliation with or endorsement by Homebrew.
+
+## License and source-code permission
+
+Official, unmodified releases may be downloaded and used without charge for
+lawful personal, educational, internal, or business operation of the Product.
+This includes running the unmodified server and clients for their intended
+private bottle-pool purpose.
+
+The source is public for transparency, audit, and evaluation, but it is not an
+open-source grant. Reusing, modifying, integrating, repackaging, redistributing,
+or creating derivative work from the code requires prior explicit written
+permission from **StefanAlMare**. See [LICENSE](LICENSE) for the complete terms.

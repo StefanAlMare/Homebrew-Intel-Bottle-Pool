@@ -1,5 +1,6 @@
 """Protocol validation shared by the server and clients (stdlib only)."""
 import hashlib
+import datetime
 import json
 import os
 import re
@@ -82,6 +83,12 @@ def fsync_dir(path):
 
 def version_order(version, revision=0, rebuild=0):
     """Conservative numeric/semver ordering; ambiguous schemes need explicit ranks."""
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", version):
+        try:
+            date = datetime.date.fromisoformat(version)
+        except ValueError as error:
+            raise PoolError("Invalid calendar version: " + version) from error
+        return [date.year, date.month, date.day, 0, 0, 0, 4, 0, int(revision), int(rebuild)]
     match = re.fullmatch(r"v?(\d+(?:\.\d+){0,5})(?:[-.]?(alpha|a|beta|b|pre|rc)(\d*))?(?:\+[^\s]+)?", version)
     if not match:
         raise PoolError("Cannot order version %r; supply an explicit version_order" % version)

@@ -1,6 +1,7 @@
 import AppKit
 import Darwin
 import Foundation
+import UserNotifications
 
 private let agentLabel = "com.stefanalmare.homebrew-intel-bottle-pool"
 
@@ -8,12 +9,77 @@ private struct PoolStatus: Decodable {
     let connected: Bool
     let spool_entries: Int
     let state: String
+    let job: RunState?
 }
+
+private struct FailedItem: Codable {
+    let name: String
+    let kind: String
+    let error: String
+}
+
+private struct RunState: Codable {
+    var status: String
+    var failed_count: Int
+    var remaining_count: Int
+    var failures: [FailedItem]
+    var current: String
+    var command: String
+    var resume_command: [String]? = nil
+}
+
+private struct PendingRun: Codable {
+    var state: RunState
+    var command: [String]
+    var activity: String
+}
+
+private enum IconState: String, CaseIterable {
+    case healthy, busy, action, error, stopped
+    var symbol: String {
+        switch self {
+        case .healthy: return "checkmark.circle"
+        case .busy: return "arrow.triangle.2.circlepath.circle"
+        case .action: return "exclamationmark.circle.fill"
+        case .error: return "exclamationmark.triangle.fill"
+        case .stopped: return "pause.circle"
+        }
+    }
+    func image() -> NSImage? {
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: rawValue)
+        image?.isTemplate = true
+        return image
+    }
+}
+
+private struct ActionChoice: Codable {
+    let id: String
+    let label: String
+}
+
+private struct PendingAction: Codable {
+    let schema: Int
+    let id: String
+    let category: String
+    let subject: String
+    let reason: String
+    let detail: String
+    let choices: [ActionChoice]
+    var command: [String]?
+    var activity: String?
+}
+
+private let actionMarker = "HOMEBREW_POOL_ACTION_REQUIRED="
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private let menu = NSMenu()
     private let statusLine = NSMenuItem(title: "Status: Starting…", action: nil, keyEquivalent: "")
+    private let reviewItem = NSMenuItem(title: "Review Action…", action: #selector(reviewAction), keyEquivalent: "r")
+    private let errorsItem = NSMenuItem(title: "Review Errors…", action: #selector(reviewErrors), keyEquivalent: "e")
+    private let retryItem = NSMenuItem(title: "Retry Failed…", action: #selector(retryFailed), keyEquivalent: "")
+    private let resumeItem = NSMenuItem(title: "Resume…", action: #selector(resumeRun), keyEquivalent: "")
+    private let stopItem = NSMenuItem(title: "Stop", action: #selector(stopRun), keyEquivalent: ".")
     private let syncItem = NSMenuItem(title: "Sync now", action: #selector(syncNow), keyEquivalent: "s")
     private let upgradeItem = NSMenuItem(title: "Update & Upgrade", action: #selector(upgradeViaPool), keyEquivalent: "u")
     private let installItem = NSMenuItem(title: "Install…", action: #selector(openInstall), keyEquivalent: "i")
@@ -26,6 +92,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var settingsProcess: Process?
     private var setupWindow: NSWindow?
     private var installWindow: NSWindow?
+    private var pendingAction: PendingAction?
+    private var pendingRun: PendingRun?
+    private var stopping = false
+    private var quitAfterStop = false
+    private var activeGroups = Set<Int32>()
+    private var busyTimer: Timer?
+    private var busyFrame = false
+    private var workflowTimer: Timer?
+    private var workflowPhase = 0
+    private var workflowDeadline = Date()
+    private var workflowSmokeDirectory: String? {
+        let args = CommandLine.arguments
+        guard let index = args.firstIndex(of: "--workflow-smoke"), index + 1 < args.count else { return nil }
+        return args[index + 1]
+    }
     private let serverField = NSTextField()
     private let tokenField = NSSecureTextField()
     private let tokenFileField = NSTextField()
@@ -53,7 +134,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private var logURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        if let directory = uiSmokeDirectory ?? workflowSmokeDirectory { return URL(fileURLWithPath: directory).appendingPathComponent("agent.log") }
+        return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/HomebrewIntelBottlePool/agent.log")
     }
 
@@ -62,18 +144,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .appendingPathComponent("Library/LaunchAgents/\(agentLabel).plist")
     }
 
+    private var actionURL: URL {
+        supportURL.appendingPathComponent("action-required.json")
+    }
+
+    private var supportURL: URL {
+        if let directory = uiSmokeDirectory ?? workflowSmokeDirectory { return URL(fileURLWithPath: directory).appendingPathComponent("support") }
+        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Homebrew Pool")
+    }
+    private var runURL: URL { supportURL.appendingPathComponent("pending-run.json") }
+
+    private func normalizedEnvironment(extra: [String: String] = [:]) -> [String: String] {
+        var environment = ProcessInfo.processInfo.environment
+        var path = environment["PATH", default: ""].split(separator: ":").map(String.init)
+        for required in ["/usr/local/bin", "/usr/local/sbin"] where !path.contains(required) {
+            path.append(required)
+        }
+        environment["PATH"] = path.joined(separator: ":")
+        environment["HOMEBREW_NO_ASK"] = "1"
+        environment["HOMEBREW_POOL_GUI"] = "1"
+        environment["PYTHONUNBUFFERED"] = "1"
+        for (key, value) in extra { environment[key] = value }
+        return environment
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.imagePosition = .imageOnly
         statusItem.button?.toolTip = "Homebrew Intel Bottle Pool"
         buildMenu()
+        menu.autoenablesItems = false
+        if uiSmokeDirectory == nil && workflowSmokeDirectory == nil {
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        }
+        restorePendingRun()
+        restorePendingAction()
+        if let directory = workflowSmokeDirectory {
+            DispatchQueue.main.async { self.startWorkflowSmoke(directory) }
+            return
+        }
         if let directory = uiSmokeDirectory {
             NSApp.appearance = NSAppearance(named: .aqua)
             DispatchQueue.main.async { self.captureUITest(directory) }
             return
         }
-        setVisual(symbol: "hourglass", title: "Checking…")
+        if pendingAction == nil { setVisual(symbol: "hourglass", title: "Checking…") }
         refreshStatus()
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             self?.refreshStatus()
@@ -87,6 +203,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusLine.isEnabled = false
         menu.addItem(statusLine)
+        reviewItem.target = self
+        reviewItem.isHidden = true
+        menu.addItem(reviewItem)
+        for item in [errorsItem, retryItem, resumeItem, stopItem] {
+            item.target = self
+            item.isHidden = true
+            menu.addItem(item)
+        }
         menu.addItem(.separator())
         syncItem.target = self
         upgradeItem.target = self
@@ -119,8 +243,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
         image?.isTemplate = true
         statusItem.button?.image = image
+        // Native template contrast follows the actual menu-bar appearance,
+        // including white on a dark/blue bar. State is encoded by shape and text.
+        statusItem.button?.contentTintColor = nil
         statusItem.button?.toolTip = "Homebrew Pool — \(title)"
         statusLine.title = "Status: \(title)"
+        updateRunMenu()
+    }
+
+    private func showActionVisual() {
+        setVisual(symbol: "exclamationmark.circle.fill", title: "🔴 Action Required")
+        reviewItem.isHidden = false
+        reviewItem.isEnabled = true
     }
 
     private func bundledEntry() -> URL? {
@@ -165,6 +299,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func runStatus() {
         guard activeProcess == nil, statusProcess == nil, settingsProcess == nil else { return }
+        guard pendingAction == nil else { showActionVisual(); return }
+        guard pendingRun == nil else { showRunVisual(); return }
         guard FileManager.default.fileExists(atPath: configURL.path) else {
             setVisual(symbol: "exclamationmark.triangle.fill", title: "Error — not configured")
             return
@@ -177,6 +313,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
+        process.environment = normalizedEnvironment()
         process.standardOutput = pipe
         process.standardError = pipe
         statusProcess = process
@@ -186,9 +323,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 guard let self = self else { return }
                 self.statusProcess = nil
                 guard self.activeProcess == nil, self.settingsProcess == nil else { return }
+                guard self.pendingAction == nil, self.pendingRun == nil else { self.refreshStatus(); return }
                 if process.terminationStatus == 0,
                    let decoded = try? JSONDecoder().decode(PoolStatus.self, from: data) {
-                    if decoded.connected && decoded.spool_entries == 0 {
+                    if let job = decoded.job, job.failed_count > 0 || job.remaining_count > 0 {
+                        // The CLI may have created the queue outside this GUI.
+                        self.pendingRun = PendingRun(state: job, command: job.resume_command ?? (job.command == "upgrade" ? ["upgrade"] : []), activity: "Busy/Resuming")
+                        self.savePendingRun()
+                        self.showRunVisual()
+                    } else if decoded.connected && decoded.spool_entries == 0 {
                         self.setVisual(symbol: "checkmark.circle.fill", title: "Healthy/Connected")
                     } else {
                         let detail = decoded.spool_entries == 1 ? "1 item queued" : "\(decoded.spool_entries) items queued"
@@ -220,40 +363,108 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
+        process.environment = normalizedEnvironment()
         process.standardOutput = pipe
         process.standardError = pipe
+        process.standardInput = FileHandle.nullDevice
         activeProcess = process
+        stopping = false
+        activeGroups.removeAll()
         activity = title
-        syncItem.isEnabled = false
-        upgradeItem.isEnabled = false
-        installItem.isEnabled = false
-        settingsItem.isEnabled = false
-        setVisual(symbol: "gearshape.2.fill", title: title)
+        if command.first != "job" {
+            let base = command.filter { $0 != "--resume" && $0 != "--retry-failed" }
+            let state = pendingRun?.state ?? RunState(status: "running", failed_count: 0, remaining_count: 1,
+                                                     failures: [], current: "", command: base.first ?? "")
+            pendingRun = PendingRun(state: state, command: base, activity: title)
+            savePendingRun()
+        }
+        setVisual(symbol: IconState.busy.symbol, title: title)
+        busyTimer?.invalidate()
+        busyTimer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: true) { [weak self] _ in
+            guard let self = self, self.activeProcess != nil, !self.stopping else { return }
+            self.busyFrame.toggle()
+            self.setVisual(symbol: self.busyFrame ? "arrow.triangle.2.circlepath.circle.fill" : IconState.busy.symbol,
+                           title: self.activity ?? "Busy")
+        }
         appendLog("\n[\(ISO8601DateFormatter().string(from: Date()))] \(command.joined(separator: " "))\n")
+        let outputLock = NSLock()
+        var captured = Data()
+        var lineBuffer = ""
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
-            if !data.isEmpty, let text = String(data: data, encoding: .utf8) { self?.appendLog(text) }
+            guard !data.isEmpty else { return }
+            outputLock.lock()
+            captured.append(data)
+            if captured.count > 262144 { captured.removeFirst(captured.count - 262144) }
+            lineBuffer += String(data: data, encoding: .utf8) ?? ""
+            let lines = lineBuffer.components(separatedBy: "\n")
+            lineBuffer = lines.last ?? ""
+            outputLock.unlock()
+            if let text = String(data: data, encoding: .utf8) { self?.appendLog(text) }
+            for line in lines.dropLast() {
+                DispatchQueue.main.async { self?.trackProcessMarker(line) }
+            }
         }
         process.terminationHandler = { [weak self] process in
             pipe.fileHandleForReading.readabilityHandler = nil
             let remaining = pipe.fileHandleForReading.readDataToEndOfFile()
+            outputLock.lock()
+            captured.append(remaining)
+            let commandOutput = captured
+            outputLock.unlock()
             if let tail = String(data: remaining, encoding: .utf8), !tail.isEmpty { self?.appendLog(tail) }
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                let wasStopped = self.stopping || process.terminationStatus == 4
                 self.activeProcess = nil
                 self.activity = nil
-                self.syncItem.isEnabled = true
-                self.upgradeItem.isEnabled = true
-                self.installItem.isEnabled = true
-                self.settingsItem.isEnabled = true
-                if process.terminationStatus == 2 && command.first == "sync" {
-                    self.refreshStatus()
+                self.busyTimer?.invalidate()
+                self.busyTimer = nil
+                self.activeGroups.removeAll()
+                self.stopping = false
+                if let state: RunState = self.decodeMarker("HOMEBREW_POOL_RUN_STATE=", from: commandOutput),
+                   process.terminationStatus == 0 || process.terminationStatus == 4 || state.failed_count > 0 || state.remaining_count > 0 {
+                    if state.failed_count == 0 && state.remaining_count == 0 && state.status != "action_required" {
+                        self.pendingRun = nil
+                        try? FileManager.default.removeItem(at: self.runURL)
+                    } else {
+                        let previous = self.pendingRun
+                        self.pendingRun = PendingRun(state: state, command: previous?.command ?? command,
+                                                     activity: previous?.activity ?? title)
+                        self.savePendingRun()
+                    }
+                } else if wasStopped, var pending = self.pendingRun {
+                    pending.state.status = "stopped"
+                    self.pendingRun = pending
+                    self.savePendingRun()
+                } else if process.terminationStatus == 2 && command.first == "sync" {
+                    self.pendingRun = nil
+                    try? FileManager.default.removeItem(at: self.runURL)
                 } else if process.terminationStatus != 0 {
-                    self.setVisual(symbol: "exclamationmark.triangle.fill", title: "Error — see logs")
-                    self.showAlert(title: "Homebrew Pool command failed", message: "The command ended with status \(process.terminationStatus). Open logs for details.")
+                    let detail = String(data: commandOutput, encoding: .utf8) ?? "No output captured"
+                    let state = RunState(status: "paused_error", failed_count: 1, remaining_count: 0,
+                                         failures: [FailedItem(name: command.first ?? "command", kind: "command", error: String(detail.suffix(8000)))],
+                                         current: "", command: command.first ?? "")
+                    self.pendingRun = PendingRun(state: state, command: command, activity: title)
+                    self.savePendingRun()
+                } else if command.first != "job" {
+                    self.pendingRun = nil
+                    try? FileManager.default.removeItem(at: self.runURL)
+                }
+                if process.terminationStatus == 3, var action = self.decodeAction(from: commandOutput) {
+                    action.command = self.pendingRun?.command ?? command
+                    action.activity = title
+                    self.setPendingAction(action)
                 } else {
                     self.refreshStatus()
-                    self.showAlert(title: "Homebrew Pool finished", message: "The operation completed. Open logs to see downloads, builds, and publication results.")
+                    if self.workflowSmokeDirectory == nil && !wasStopped && process.terminationStatus != 0 && !(process.terminationStatus == 2 && command.first == "sync") {
+                        self.showAlert(title: "Paused — Error", message: "The operation stopped. Review Errors shows what failed. The remaining queue is saved.")
+                    }
+                }
+                self.updateRunMenu()
+                if self.quitAfterStop {
+                    self.quitAfterStop = false
+                    NSApp.terminate(nil)
                 }
             }
         }
@@ -261,18 +472,153 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         catch {
             activeProcess = nil
             activity = nil
-            syncItem.isEnabled = true
-            upgradeItem.isEnabled = true
-            installItem.isEnabled = true
-            settingsItem.isEnabled = true
+            busyTimer?.invalidate()
             appendLog("\(error)\n")
-            setVisual(symbol: "exclamationmark.triangle.fill", title: "Error")
+            pendingRun?.state.status = "paused_error"
+            pendingRun?.state.failed_count = 1
+            pendingRun?.state.failures = [FailedItem(name: command.first ?? "command", kind: "command", error: String(describing: error))]
+            savePendingRun()
+            refreshStatus()
+        }
+    }
+
+    private func trackProcessMarker(_ line: String) {
+        if line.hasPrefix("HOMEBREW_POOL_PROCESS_GROUP_DONE="),
+           let pid = Int32(line.dropFirst("HOMEBREW_POOL_PROCESS_GROUP_DONE=".count)) {
+            activeGroups.remove(pid)
+        } else if line.hasPrefix("HOMEBREW_POOL_PROCESS_GROUP="),
+                  let pid = Int32(line.dropFirst("HOMEBREW_POOL_PROCESS_GROUP=".count)), pid > 1 {
+            activeGroups.insert(pid)
+        }
+    }
+
+    private func decodeMarker<T: Decodable>(_ marker: String, from data: Data) -> T? {
+        guard let text = String(data: data, encoding: .utf8),
+              let range = text.range(of: marker, options: .backwards),
+              let line = text[range.upperBound...].split(whereSeparator: { $0 == "\n" || $0 == "\r" }).first,
+              let payload = String(line).data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(T.self, from: payload)
+    }
+
+    private func savePendingRun() {
+        guard let pending = pendingRun, let data = try? JSONEncoder().encode(pending) else { return }
+        try? FileManager.default.createDirectory(at: supportURL, withIntermediateDirectories: true)
+        try? data.write(to: runURL, options: .atomic)
+    }
+
+    private func restorePendingRun() {
+        guard let data = try? Data(contentsOf: runURL),
+              var pending = try? JSONDecoder().decode(PendingRun.self, from: data) else { return }
+        if pending.state.status == "running" { pending.state.status = "stopped" }
+        pendingRun = pending
+        showRunVisual()
+    }
+
+    private func updateRunMenu() {
+        let busy = activeProcess != nil
+        let failures = pendingRun?.state.failed_count ?? 0
+        let remaining = pendingRun?.state.remaining_count ?? 0
+        errorsItem.isHidden = failures == 0
+        errorsItem.isEnabled = !busy
+        retryItem.isHidden = failures == 0
+        retryItem.isEnabled = !busy && pendingAction == nil
+        resumeItem.isHidden = remaining == 0
+        resumeItem.isEnabled = !busy && pendingAction == nil && !(pendingRun?.command.isEmpty ?? true)
+        stopItem.isHidden = !busy && pendingRun == nil
+        stopItem.isEnabled = !stopping
+        syncItem.isEnabled = !busy && pendingRun == nil && pendingAction == nil
+        upgradeItem.isEnabled = syncItem.isEnabled
+        installItem.isEnabled = syncItem.isEnabled
+        settingsItem.isEnabled = !busy && settingsProcess == nil
+    }
+
+    private func showRunVisual() {
+        guard let state = pendingRun?.state else { return }
+        if state.failed_count > 0 {
+            setVisual(symbol: IconState.error.symbol, title: "Paused — Error · \(state.failed_count) failed · \(state.remaining_count) remaining")
+        } else {
+            setVisual(symbol: IconState.stopped.symbol, title: "Paused/Stopped · \(state.remaining_count) remaining")
+        }
+    }
+
+    @objc private func reviewErrors() {
+        guard let pending = pendingRun else { return }
+        let alert = NSAlert()
+        alert.messageText = "\(pending.state.failed_count) failed item(s)"
+        alert.informativeText = pending.state.failures.map { "\($0.name): \($0.error)" }.joined(separator: "\n\n").suffix(6000).description
+        alert.addButton(withTitle: "Close")
+        alert.addButton(withTitle: "Resolve / Skip Failed")
+        alert.addButton(withTitle: "Cancel Saved Queue")
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal()
+        if response == .alertSecondButtonReturn {
+            if pending.state.command == "upgrade" || pending.state.command == "install" {
+                runInteractive(command: ["job", "resolve"], activity: "Busy/Resolving")
+            } else {
+                pendingRun = nil
+                try? FileManager.default.removeItem(at: runURL)
+                refreshStatus()
+            }
+        } else if response == .alertThirdButtonReturn {
+            clearPendingActionWithoutRefresh()
+            runInteractive(command: ["job", "cancel"], activity: "Busy/Cancelling")
+        }
+    }
+
+    private func continuationCommand(retry: Bool) -> [String]? {
+        guard let pending = pendingRun, !pending.command.isEmpty else { return nil }
+        var command = pending.command.filter { $0 != "--resume" && $0 != "--retry-failed" }
+        if (command.first == "upgrade" || command.first == "install") && !pending.state.failures.contains(where: { $0.kind == "command" }) {
+            command.append(retry ? "--retry-failed" : "--resume")
+        }
+        return command
+    }
+
+    @objc private func retryFailed() {
+        guard let command = continuationCommand(retry: true) else { return }
+        runInteractive(command: command, activity: "Busy/Retrying failed items")
+    }
+
+    @objc private func resumeRun() {
+        guard let command = continuationCommand(retry: false) else { return }
+        runInteractive(command: command, activity: "Busy/Resuming saved queue")
+    }
+
+    @objc private func stopRun() {
+        guard let process = activeProcess else {
+            pendingRun?.state.status = "stopped"
+            savePendingRun()
+            refreshStatus()
+            return
+        }
+        guard !stopping else { return }
+        stopping = true
+        busyTimer?.invalidate()
+        setVisual(symbol: IconState.stopped.symbol, title: "Stopping… · queue retained")
+        appendLog("\n[stop] Graceful stop requested\n")
+        kill(process.processIdentifier, SIGTERM)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 22) { [weak self, weak process] in
+            guard let self = self, let process = process,
+                  self.activeProcess === process, process.isRunning else { return }
+            self.appendLog("[stop] Worker timeout; terminating registered process groups\n")
+            for group in self.activeGroups { kill(-group, SIGTERM) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self, weak process] in
+                guard let self = self, let process = process,
+                      self.activeProcess === process, process.isRunning else { return }
+                for group in self.activeGroups { kill(-group, SIGKILL) }
+                kill(process.processIdentifier, SIGKILL)
+            }
         }
     }
 
     @objc private func refreshStatus() {
         if let activity = activity {
-            setVisual(symbol: "gearshape.2.fill", title: activity)
+            setVisual(symbol: stopping ? IconState.stopped.symbol : IconState.busy.symbol,
+                      title: stopping ? "Stopping… · queue retained" : activity)
+        } else if pendingAction != nil {
+            showActionVisual()
+        } else if pendingRun != nil {
+            showRunVisual()
         } else {
             runStatus()
         }
@@ -280,6 +626,117 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func syncNow() {
         runInteractive(command: ["sync"], activity: "Busy/Syncing")
+    }
+
+    private func decodeAction(from data: Data) -> PendingAction? {
+        guard let text = String(data: data, encoding: .utf8),
+              let range = text.range(of: actionMarker, options: .backwards) else { return nil }
+        let suffix = text[range.upperBound...]
+        guard let line = suffix.split(whereSeparator: { $0 == "\n" || $0 == "\r" }).first,
+              let payload = String(line).data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(PendingAction.self, from: payload)
+    }
+
+    private func setPendingAction(_ action: PendingAction) {
+        pendingAction = action
+        showActionVisual()
+        if let data = try? JSONEncoder().encode(action) {
+            try? FileManager.default.createDirectory(at: actionURL.deletingLastPathComponent(),
+                                                     withIntermediateDirectories: true)
+            try? data.write(to: actionURL, options: .atomic)
+        }
+        let notificationKey = "notified-action-\(action.id)"
+        if !UserDefaults.standard.bool(forKey: notificationKey) {
+            let notification = UNMutableNotificationContent()
+            notification.title = "Homebrew Pool — Action Required"
+            notification.body = action.reason
+            notification.sound = .default
+            let request = UNNotificationRequest(identifier: "homebrew-pool-\(action.id)",
+                                                content: notification, trigger: nil)
+            UNUserNotificationCenter.current().add(request)
+            UserDefaults.standard.set(true, forKey: notificationKey)
+        }
+    }
+
+    private func restorePendingAction() {
+        guard let data = try? Data(contentsOf: actionURL),
+              let action = try? JSONDecoder().decode(PendingAction.self, from: data) else { return }
+        pendingAction = action
+        showActionVisual()
+    }
+
+    private func clearPendingAction() {
+        pendingAction = nil
+        reviewItem.isHidden = true
+        try? FileManager.default.removeItem(at: actionURL)
+        refreshStatus()
+    }
+
+    @objc private func reviewAction() {
+        guard let action = pendingAction else { return }
+        let alert = NSAlert()
+        alert.messageText = "Homebrew Pool needs your decision"
+        var message = action.reason
+        if !action.subject.isEmpty { message += "\n\nItem: \(action.subject)" }
+        if !action.detail.isEmpty { message += "\n\nDetails:\n\(String(action.detail.suffix(1200)))" }
+        alert.informativeText = message
+        alert.alertStyle = .critical
+        for choice in action.choices.prefix(3) { alert.addButton(withTitle: choice.label) }
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal().rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+        guard response >= 0, response < action.choices.count else { return }
+        handleActionChoice(action.choices[response].id, action: action)
+    }
+
+    private func handleActionChoice(_ choice: String, action: PendingAction) {
+        guard var command = action.command else { clearPendingAction(); return }
+        if choice == "cancel" {
+            clearPendingActionWithoutRefresh()
+            runInteractive(command: ["job", "cancel"], activity: "Busy/Cancelling")
+            return
+        }
+        command = command.filter { $0 != "--resume" && $0 != "--retry-failed" }
+        if command.first == "upgrade" || command.first == "install" { command.append("--resume") }
+        if choice == "skip" {
+            if command.first == "install" {
+                clearPendingActionWithoutRefresh()
+                runInteractive(command: ["job", "cancel"], activity: "Busy/Skipping installation")
+                return
+            }
+            guard command.first == "upgrade", !action.subject.isEmpty else { clearPendingAction(); return }
+            command += ["--skip", pendingRun?.state.current.isEmpty == false ? pendingRun!.state.current : action.subject]
+        } else if choice == "formula" || choice == "cask" {
+            if let index = command.firstIndex(of: "--type"), index + 1 < command.count {
+                command[index + 1] = choice
+            } else {
+                command += ["--type", choice]
+            }
+        } else if choice == "continue" && action.category == "authentication" {
+            guard requestNativeAuthorization() else { return }
+        }
+        let title = action.activity ?? "Busy/Continuing"
+        clearPendingActionWithoutRefresh()
+        runInteractive(command: command, activity: title)
+    }
+
+    private func clearPendingActionWithoutRefresh() {
+        pendingAction = nil
+        reviewItem.isHidden = true
+        try? FileManager.default.removeItem(at: actionURL)
+    }
+
+    private func requestNativeAuthorization() -> Bool {
+        // SecurityAgent owns the credential UI. The application never receives,
+        // stores, or forwards an administrator password.
+        let source = "do shell script \"/usr/bin/true\" with administrator privileges"
+        var error: NSDictionary?
+        let result = NSAppleScript(source: source)?.executeAndReturnError(&error)
+        if result == nil {
+            showAlert(title: "Authorization was not granted",
+                      message: error?[NSAppleScript.errorMessage] as? String ?? "The system authorization dialog was cancelled.")
+            return false
+        }
+        return true
     }
 
     @objc private func upgradeViaPool() {
@@ -428,7 +885,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             installWindow?.contentView?.layoutSubtreeIfNeeded()
             try captureView(installWindow!.contentView!, to: root.appendingPathComponent("install.png"))
             let titles = menu.items.map { $0.title }
-            let data = try JSONSerialization.data(withJSONObject: ["menu": titles, "config_written": false], options: .prettyPrinted)
+            func require(_ value: Bool, _ message: String) throws {
+                if !value { throw NSError(domain: "HomebrewPoolUISmoke", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
+            }
+            var icons = [[String: Any]]()
+            for state in IconState.allCases {
+                let image = state.image()
+                try require(image?.isTemplate == true, "Every status icon must be a template")
+                setVisual(symbol: state.symbol, title: state.rawValue)
+                try require(statusItem.button?.contentTintColor == nil, "Native contrast must not be overridden")
+                icons.append(["state": state.rawValue, "symbol": state.symbol, "template": image!.isTemplate, "native_contrast": true])
+            }
+            try require(Set(icons.compactMap { $0["symbol"] as? String }).count == 5, "State symbols must differ")
+            pendingRun = PendingRun(state: RunState(status: "paused_error", failed_count: 2, remaining_count: 3,
+                failures: [FailedItem(name: "fixture", kind: "formula", error: "fixture error")], current: "fixture", command: "upgrade"),
+                command: ["upgrade"], activity: "Busy/Building")
+            refreshStatus()
+            try require(statusLine.title.contains("2 failed"), "Errors must remain visible on refresh")
+            try require(!errorsItem.isHidden && retryItem.isEnabled && resumeItem.isEnabled, "Paused error menu")
+            activeProcess = Process()
+            updateRunMenu()
+            try require(stopItem.isEnabled && !stopItem.isHidden, "Stop must be enabled while busy")
+            try require(menu.items.first(where: { $0.title == "Quit" })?.isEnabled == true, "Quit must remain enabled")
+            try require(!retryItem.isEnabled && !resumeItem.isEnabled, "Do not launch a second worker")
+            activeProcess = nil
+            pendingRun = nil
+            let data = try JSONSerialization.data(withJSONObject: ["menu": titles, "config_written": false,
+                "icons": icons, "paused_error_persists": true, "stop_and_quit_while_busy": true,
+                "retry_resume_menu": true], options: .prettyPrinted)
             try data.write(to: root.appendingPathComponent("ui-smoke.json"))
             NSApp.terminate(nil)
         } catch {
@@ -446,6 +930,86 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             throw NSError(domain: "HomebrewPool", code: 2)
         }
         try data.write(to: url)
+    }
+
+    private func startWorkflowSmoke(_ directory: String) {
+        let root = URL(fileURLWithPath: directory).resolvingSymlinksInPath()
+        // This test mode must never reach the user's configuration or Homebrew.
+        guard FileManager.default.fileExists(atPath: root.appendingPathComponent("test-fixture").path),
+              configURL.resolvingSymlinksInPath().path.hasPrefix(root.path + "/"),
+              let data = try? Data(contentsOf: configURL),
+              let config = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let brew = config["brew"] as? String,
+              URL(fileURLWithPath: brew).resolvingSymlinksInPath().path.hasPrefix(root.path + "/") else {
+            fputs("Workflow smoke requires an isolated fixture configuration\n", stderr)
+            exit(1)
+        }
+        workflowDeadline = Date().addingTimeInterval(120)
+        runInteractive(command: ["upgrade"], activity: "Busy/Fixture upgrade")
+        workflowTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            self?.advanceWorkflowSmoke(root)
+        }
+    }
+
+    private func advanceWorkflowSmoke(_ root: URL) {
+        do {
+            func require(_ value: Bool, _ message: String) throws {
+                if !value { throw NSError(domain: "HomebrewPoolWorkflowSmoke", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
+            }
+            try require(Date() < workflowDeadline, "Workflow timed out at phase \(workflowPhase)")
+            switch workflowPhase {
+            case 0:
+                guard activeProcess == nil else { return }
+                try require(pendingRun?.state.failed_count == 1, "First technical error must pause")
+                refreshStatus()
+                try require(statusLine.title.contains("1 failed"), "Periodic refresh must preserve error count")
+                try require(retryItem.isEnabled && resumeItem.isEnabled, "Retry/Resume menu must be available")
+                try require(!FileManager.default.fileExists(atPath: root.appendingPathComponent("beta-visited").path), "Second package started after error")
+                try FileManager.default.removeItem(at: root.appendingPathComponent("fail"))
+                workflowPhase = 1
+                retryFailed()
+            case 1:
+                guard activeProcess == nil else { return }
+                try require(pendingRun?.state.failed_count == 0 && (pendingRun?.state.remaining_count ?? 0) > 0, "Retry must stop before remaining queue")
+                try require(!FileManager.default.fileExists(atPath: root.appendingPathComponent("beta-visited").path), "Retry started another package")
+                workflowPhase = 2
+                resumeRun()
+            case 2:
+                guard activeProcess == nil else { return }
+                try require(pendingRun == nil, "Resume must finish the saved queue")
+                try require(FileManager.default.fileExists(atPath: root.appendingPathComponent("beta-visited").path), "Remaining package was not visited")
+                _ = FileManager.default.createFile(atPath: root.appendingPathComponent("block").path, contents: Data())
+                workflowPhase = 3
+                runInteractive(command: ["upgrade"], activity: "Busy/Fixture stop test")
+            case 3:
+                guard FileManager.default.fileExists(atPath: root.appendingPathComponent("child-pid").path) else { return }
+                try require(activeProcess != nil && stopItem.isEnabled, "Stop unavailable while worker is running")
+                try require(menu.items.first(where: { $0.title == "Quit" })?.isEnabled == true, "Quit unavailable while worker is running")
+                workflowPhase = 4
+                stopRun()
+            case 4:
+                guard activeProcess == nil else { return }
+                try require(pendingRun?.state.status == "stopped", "Stopped worker must retain queue")
+                try require(FileManager.default.fileExists(atPath: root.appendingPathComponent("stop-clean").path), "Child did not receive graceful stop")
+                try FileManager.default.removeItem(at: root.appendingPathComponent("block"))
+                workflowPhase = 5
+                resumeRun()
+            default:
+                guard activeProcess == nil else { return }
+                try require(pendingRun == nil, "Stop/Resume must finish")
+                let report: [String: Any] = ["pause_on_first_error": true, "sticky_failed_count": true,
+                    "retry_only_failed": true, "resume_remaining": true, "stop_child_cleanup": true,
+                    "stop_resume": true, "quit_while_busy": true, "isolated_configuration": true]
+                let data = try JSONSerialization.data(withJSONObject: report, options: .prettyPrinted)
+                try data.write(to: root.appendingPathComponent("workflow-smoke.json"))
+                workflowTimer?.invalidate()
+                NSApp.terminate(nil)
+            }
+        } catch {
+            fputs("Workflow smoke failed: \(error)\n", stderr)
+            if activeProcess != nil { quitAfterStop = true; stopRun() }
+            else { exit(1) }
+        }
     }
 
     @objc private func chooseToken() { chooseFile(tokenFileField); tokenField.stringValue = "" }
@@ -468,6 +1032,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let output = Pipe()
         process.executableURL = URL(fileURLWithPath: python)
         process.arguments = args
+        process.environment = normalizedEnvironment()
         process.standardInput = input
         process.standardOutput = output
         process.standardError = output
@@ -560,6 +1125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
         process.arguments = arguments
+        process.environment = normalizedEnvironment()
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         do { try process.run(); process.waitUntilExit(); return process.terminationStatus }
@@ -577,11 +1143,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func quitApp() {
-        if activeProcess != nil || settingsProcess != nil {
-            showAlert(title: "A Pool operation is still running", message: "Wait for it to finish before quitting so a build or sync is not interrupted.")
+        if activeProcess != nil {
+            let alert = NSAlert()
+            alert.messageText = "Stop the current operation and quit?"
+            alert.informativeText = "The process will stop in a controlled way. The saved queue remains available for Retry or Resume after reopening."
+            alert.addButton(withTitle: "Stop & Quit")
+            alert.addButton(withTitle: "Cancel")
+            NSApp.activate(ignoringOtherApps: true)
+            if alert.runModal() == .alertFirstButtonReturn {
+                quitAfterStop = true
+                stopRun()
+            }
             return
         }
+        settingsProcess?.terminate()
+        statusProcess?.terminate()
         NSApp.terminate(nil)
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if activeProcess != nil {
+            quitApp()
+            return .terminateCancel
+        }
+        settingsProcess?.terminate()
+        statusProcess?.terminate()
+        return .terminateNow
     }
 }
 

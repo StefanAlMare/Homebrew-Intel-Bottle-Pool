@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.3.2 — 7 octombrie 2026
+
+- Adaugă ghidul complet `INSTALLATION.md` pentru server, HTTPS/VPN, storage,
+  token și configurarea/verificarea fiecărui Mac.
+- Creditează explicit StefanAlMare și colaborarea cu ChatGPT by OpenAI.
+- Înlocuiește licența permisivă MIT cu o licență source-available: release-ul
+  oficial nemodificat poate fi descărcat și utilizat gratuit, iar reutilizarea,
+  modificarea sau redistribuirea codului necesită acordul scris al StefanAlMare.
+- Iconițe template cu contrast nativ în menu bar; Healthy, Busy animat, Action
+  Required, Paused — Error și Paused/Stopped au simboluri diferite.
+- Coada se salvează atomic. Prima eroare oprește procesarea; Retry execută numai
+  pașii eșuați, Resume continuă restul, iar erorile rămân vizibile până la rezolvare.
+- Stop și Quit sunt disponibile în timpul lucrului. Oprire SIGINT, apoi SIGTERM
+  după 8 secunde, SIGKILL numai după încă 4 secunde; și copiii care schimbă sesiunea
+  sunt urmăriți. GUI are fallback separat dacă workerul nu răspunde.
+- Preflight înainte de update: remotes oficiale legacy, upstream/refspec lipsă și
+  launcher brew; fetch --prune + merge --ff-only, păstrând commit-urile locale,
+  mirror-urile private și URL-urile tap-urilor externe. Refuză dirty/detached/divergent.
+- Modul API nu clonează core/cask. Checkout-ul core se creează numai pentru bottling.
+- Suport pentru versiuni calendaristice și separarea stderr; deps acceptă doar
+  linii cu nume valide, eliminând mesajele Homebrew din argumentele comenzilor.
+- Retry revalidează și o dependență instalată al cărei test a eșuat.
+- Teste cu fixture repos, procese copil, pilot Homebrew Intel izolat și pilot GUI.
+
+## 0.3.1 — 7 octombrie 2026
+
+- păstrează `root_url` pentru bottle-urile generate din tap-uri externe;
+- normalizează PATH-ul proceselor GUI pentru prefixul Intel Homebrew;
+- adaugă starea persistentă Action Required, notificare unică și Review Action;
+- păstrează operațiile normale complet automate cu `HOMEBREW_NO_ASK=1`;
+- separă vizual Healthy, Busy, Action Required și Error.
+
 ## 0.3.0 — 7 octombrie 2026
 
 - Redenumește acțiunea principală în `Update & Upgrade`.

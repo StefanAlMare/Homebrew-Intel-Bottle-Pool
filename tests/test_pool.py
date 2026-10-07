@@ -256,6 +256,9 @@ class FakeBrew(Brew):
     builds = 0
     build_guard = threading.Lock()
 
+    def preflight(self):
+        self.calls.append(("fixture-preflight",))
+
     def sync_tap_for_build(self, info):
         self.verify_tap_formula(info)
 
@@ -285,7 +288,7 @@ class FakeBrew(Brew):
             return json.dumps({"formulae": [copy.deepcopy(self.records[args[-1].split("/")[-1]])]})
         if args[0] == "deps":
             return ""
-        if args[0] == "install":
+        if args[0] in ("install", "reinstall"):
             name = args[-1]
             if name.endswith(".tar.gz"):
                 if env_extra != {"HOMEBREW_DEVELOPER": "1"}:

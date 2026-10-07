@@ -1,0 +1,145 @@
+"""Durable queue: an error is a boundary, retry never starts the next item."""
+import json
+import subprocess
+from pathlib import Path
+
+from .actions import ActionRequired
+from .common import PoolError, atomic_json
+from .processes import JobStopped, check_stop
+
+RUN_MARKER = "HOMEBREW_POOL_RUN_STATE="
+
+
+def step(kind, name="", **options):
+    return dict(kind=kind, name=name, status="pending", options=options)
+
+
+class Job:
+    def __init__(self, state):
+        self.path = Path(state) / "job.json"
+        self.data = json.loads(self.path.read_text()) if self.path.exists() else None
+        if self.data and self.data.get("schema") != 1:
+            raise PoolError("Unsupported saved job schema; preserve job.json and review it")
+
+    def start(self, command, steps, options):
+        if self.data and (self.remaining or self.failures or self.data["status"] == "action_required"):
+            raise PoolError("A saved job needs Retry, Resume, or Cancel before starting a new operation")
+        self.data = dict(schema=1, command=command, status="running", steps=steps,
+                         options=options, reviewed=False)
+        self.save()
+
+    @property
+    def remaining(self):
+        return [s for s in self.data["steps"] if s["status"] in ("pending", "running", "action")] if self.data else []
+
+    @property
+    def failures(self):
+        return [s for s in self.data["steps"] if s["status"] == "failed"] if self.data else []
+
+    def report(self):
+        command = []
+        if self.data:
+            command = [self.data.get("command", "")]
+            if command[0] == "install":
+                target = next((s for s in self.data["steps"] if s["kind"] == "install"), None)
+                if target:
+                    command += ["--type", target["options"]["package_type"], target["name"]]
+                    if target["options"]["mutable"]:
+                        command += ["--allow-upstream-only-cask"]
+        return dict(schema=1, status=self.data["status"] if self.data else "idle",
+                    failed_count=len(self.failures), remaining_count=len(self.remaining),
+                    failures=[dict(name=s["name"] or s["kind"], kind=s["kind"], error=s.get("error", ""))
+                              for s in self.failures],
+                    current=self.data.get("current", "") if self.data else "",
+                    command=self.data.get("command", "") if self.data else "", resume_command=command)
+
+    def save(self):
+        atomic_json(self.path, self.data)
+
+    def emit(self):
+        print(RUN_MARKER + json.dumps(self.report(), sort_keys=True), flush=True)
+
+    def resolve(self, cancel=False):
+        if not self.data:
+            return
+        if not cancel and any(s["kind"] in ("preflight", "update", "discover") for s in self.failures):
+            raise PoolError("Retry the failed prerequisite or Cancel the saved job")
+        for item in self.data["steps"]:
+            if item["status"] == "failed" or (cancel and item["status"] in ("pending", "running", "action")):
+                item["status"] = "resolved" if not cancel else "cancelled"
+        self.data["reviewed"] = True
+        self.data["status"] = "stopped" if self.remaining else "resolved"
+        self.save()
+
+    def run(self, execute, mode="resume", skip=()):
+        if not self.data:
+            raise PoolError("No saved queue to resume")
+        if mode != "retry" and any(s["kind"] in ("preflight", "update", "discover") for s in self.failures):
+            self.emit()
+            raise PoolError("Retry the failed prerequisite before resuming packages")
+        if self.data["status"] == "running":
+            # Under the exclusive job lock a running record is a previous crash.
+            for item in self.data["steps"]:
+                if item["status"] == "running":
+                    item["status"] = "pending"
+                    item["interrupted"] = True
+        skipped = set(skip)
+        for item in self.data["steps"]:
+            if item["name"] in skipped and item["status"] in ("pending", "action", "failed"):
+                item["status"] = "skipped"
+        selected = {"failed"} if mode == "retry" else {"pending", "action", "running"}
+        self.data["status"] = "running"
+        self.save()
+        try:
+            # Discovery may insert package steps while this loop is running.
+            for item in self.data["steps"]:
+                if item["name"] in skipped and item["status"] in ("pending", "action", "failed"):
+                    item["status"] = "skipped"
+                    self.save()
+                if item["status"] not in selected:
+                    continue
+                check_stop()
+                self.data["current"] = item["name"] or item["kind"]
+                item["status"] = "running"
+                self.save()
+                try:
+                    execute(item, self)
+                    check_stop()
+                except ActionRequired:
+                    item["status"] = "action"
+                    self.data["status"] = "action_required"
+                    self.save()
+                    raise
+                except JobStopped as error:
+                    item["status"] = "pending" if mode != "retry" else "failed"
+                    item["interrupted"] = True
+                    if getattr(error, "pool_failed_package", None):
+                        item["failed_package"] = error.pool_failed_package
+                    raise
+                except (PoolError, OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
+                    item["status"] = "failed"
+                    detail = str(error)
+                    if isinstance(error, subprocess.CalledProcessError):
+                        detail += "\n" + (error.output or "") + (error.stderr or "")
+                    item["error"] = detail[-8000:]
+                    if getattr(error, "pool_failed_package", None):
+                        item["failed_package"] = error.pool_failed_package
+                    self.data["status"] = "paused_error"
+                    self.data["reviewed"] = False
+                    self.save()
+                    raise PoolError("Paused — Error: " + self.data["current"] + ": " + str(error)) from error
+                item["status"] = "done"
+                item.pop("error", None)
+                item.pop("interrupted", None)
+                self.data["active_package"] = ""
+                self.save()
+            self.data["current"] = ""
+            self.data["status"] = ("paused_error" if self.failures else
+                                   "paused" if self.remaining else "completed")
+            self.save()
+        except JobStopped:
+            self.data["status"] = "stopped"
+            self.save()
+            raise
+        finally:
+            self.emit()

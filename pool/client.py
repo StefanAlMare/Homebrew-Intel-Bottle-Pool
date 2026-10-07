@@ -85,6 +85,7 @@ class Client:
             raise
 
     def fetch(self, manifest, destination):
+        from .processes import check_stop
         validate(manifest)
         destination = Path(destination)
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -94,6 +95,7 @@ class Client:
                 with self.request("GET", "blob/" + key_for(manifest), headers={"If-Match": manifest["sha256"]}) as response:
                     remaining = manifest["size"]
                     while remaining:
+                        check_stop()
                         chunk = response.read(min(CHUNK, remaining))
                         if not chunk:
                             raise PoolError("Truncated download")
@@ -158,6 +160,8 @@ class Client:
             conn.endheaders()
             with open(source, "rb") as f:
                 for chunk in iter(lambda: f.read(CHUNK), b""):
+                    from .processes import check_stop
+                    check_stop()
                     conn.send(chunk)
             response = conn.getresponse()
             body = json.loads(response.read())
@@ -198,8 +202,10 @@ class Client:
             return result
 
     def sync(self):
+        from .processes import check_stop
         results = []
         for directory in sorted(self.spool.glob("entry-*")):
+            check_stop()
             if not (directory / "manifest.json").exists():
                 continue  # incomplete enqueue from a crashed process; never publish it
             try:
@@ -210,6 +216,7 @@ class Client:
                 break
             except PoolError as e:
                 results.append("retained: " + str(e))
+                break
         return results
 
     def local_match(self, expected):
@@ -234,8 +241,10 @@ class Lease:
         self.thread = None
 
     def __enter__(self):
+        from .processes import check_stop
         deadline = time.monotonic() + self.wait_seconds
         while True:
+            check_stop()
             try:
                 result = self.client.json_request("POST", "lease/" + self.key, {"action": "acquire"})
                 self.token = result["token"]

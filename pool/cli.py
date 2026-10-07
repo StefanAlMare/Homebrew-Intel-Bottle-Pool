@@ -5,11 +5,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .actions import ActionRequired
 from .artifacts import manifest_for, refresh
 from .brew import Brew
-from .client import Client, Unavailable
+from .client import Client, Unavailable, local_lock
 from .common import PoolError, atomic_json
 from .settings import check_connection, configure_gui
+from .jobs import Job
+from .processes import JobStopped, install_stop_handlers
 
 
 def default_config():
@@ -29,6 +32,8 @@ def main(argv=None):
     status = commands.add_parser("status")
     status.add_argument("--json", action="store_true", help="Machine-readable status for the macOS agent")
     commands.add_parser("sync")
+    job_command = commands.add_parser("job", help="Review, resolve, or cancel the saved queue")
+    job_command.add_argument("action", choices=("review", "resolve", "cancel"))
     settings = commands.add_parser("settings", help="GUI configuration JSON on stdin; secrets never in argv")
     settings.add_argument("--save", action="store_true")
     install = commands.add_parser("install")
@@ -37,11 +42,18 @@ def main(argv=None):
     install.add_argument("--no-update", action="store_true")
     install.add_argument("--no-build", action="store_true")
     install.add_argument("--allow-upstream-only-cask", action="store_true")
+    install_mode = install.add_mutually_exclusive_group()
+    install_mode.add_argument("--resume", action="store_true")
+    install_mode.add_argument("--retry-failed", action="store_true")
     upgrade = commands.add_parser("upgrade")
     upgrade.add_argument("formula", nargs="*")
     upgrade.add_argument("--no-build", action="store_true", help="Defer builds for this run only")
     upgrade.add_argument("--no-update", action="store_true")
     upgrade.add_argument("--no-casks", action="store_true")
+    upgrade.add_argument("--skip", action="append", default=[], help=argparse.SUPPRESS)
+    upgrade_mode = upgrade.add_mutually_exclusive_group()
+    upgrade_mode.add_argument("--resume", action="store_true")
+    upgrade_mode.add_argument("--retry-failed", action="store_true")
     external = commands.add_parser("refresh")
     external.add_argument("--no-build", action="store_true")
     record = commands.add_parser("publish")
@@ -51,6 +63,8 @@ def main(argv=None):
     fetch.add_argument("--recipe", required=True)
     fetch.add_argument("destination")
     args = p.parse_args(argv)
+    if args.command in ("upgrade", "install", "sync", "refresh", "publish", "fetch"):
+        install_stop_handlers()
     try:
         config_path = Path(args.config).expanduser()
         if args.command == "settings":
@@ -80,23 +94,33 @@ def main(argv=None):
             except Unavailable:
                 connected = False
             queued = len(list(client.spool.glob("entry-*/manifest.json")))
+            job = Job(client.state).report()
             if args.json:
-                state = "healthy" if connected and queued == 0 else "spooling"
+                state = job["status"] if job["failed_count"] or job["remaining_count"] else "healthy" if connected and queued == 0 else "spooling"
                 print(json.dumps({"connected": connected, "spool_entries": queued,
-                                  "state": state, "server": server}, sort_keys=True))
+                                  "state": state, "server": server, "job": job}, sort_keys=True))
             else:
                 print(json.dumps(server) if connected else "Pool offline")
                 print("Spool entries: " + str(queued))
+        elif args.command == "job":
+            with local_lock(client.state):
+                job = Job(client.state)
+                if args.action != "review":
+                    job.resolve(cancel=args.action == "cancel")
+                job.emit()
         elif args.command == "sync":
             results = client.sync()
             print(json.dumps(results))
+            if any(x.startswith("retained:") for x in results):
+                return 1
             if any(x == "offline" or x.startswith("retained:") or x == "busy" for x in results):
                 return 2
         elif args.command == "upgrade":
-            Brew(client).upgrade(args.formula, not args.no_build, not args.no_update, not args.no_casks)
+            Brew(client).upgrade(args.formula, not args.no_build, not args.no_update, not args.no_casks,
+                                 args.skip, "retry" if args.retry_failed else "resume" if args.resume else "start")
         elif args.command == "install":
             Brew(client).install(args.name, args.type, not args.no_build, not args.no_update,
-                                 args.allow_upstream_only_cask)
+                                 args.allow_upstream_only_cask, "retry" if args.retry_failed else "resume" if args.resume else "start")
         elif args.command == "refresh":
             print(json.dumps(refresh(client, not args.no_build)))
         elif args.command == "publish":
@@ -115,7 +139,20 @@ def main(argv=None):
                 raise PoolError("No matching version/context/checksum in pool")
             client.fetch(found, args.destination)
         return 0
+    except ActionRequired as e:
+        print(e.marker(), file=sys.stderr)
+        return 3
+    except JobStopped as e:
+        print(str(e), file=sys.stderr)
+        return 4
     except (PoolError, OSError, ValueError, KeyError, subprocess.CalledProcessError) as e:
+        if "client" in locals():
+            try:
+                saved = Job(client.state)
+                if saved.data and (saved.remaining or saved.failures or args.command == "job"):
+                    saved.emit()
+            except (OSError, ValueError, PoolError):
+                pass
         print("Error: " + str(e), file=sys.stderr)
         return 1
 

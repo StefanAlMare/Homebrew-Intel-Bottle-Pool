@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .client import Lease, Unavailable
 from .common import CHUNK, PoolError, digest, validate, version_order
+from .processes import check_stop, run_command
 
 
 def manifest_for(recipe, file=None):
@@ -73,10 +74,11 @@ def produce(client, recipe, destination, lease, allow_build):
             if not isinstance(command, list) or not command or any(not isinstance(x, str) for x in command):
                 raise PoolError("command must be an argv array (no shell)")
             argv = [x.replace("{output}", str(output)) for x in command]
-            subprocess.run(argv, check=True, cwd=recipe.get("cwd"))
+            run_command(argv, cwd=recipe.get("cwd"), stream=True)
         else:
             with urllib.request.urlopen(url, timeout=60) as response, open(output, "xb") as f:
                 while True:
+                    check_stop()
                     chunk = response.read(CHUNK)
                     if not chunk:
                         break
@@ -100,12 +102,7 @@ def produce(client, recipe, destination, lease, allow_build):
 
 def refresh(client, allow_build=True):
     results = []
-    failures = []
     for recipe in client.config.get("artifacts", []):
-        try:
-            results.append({"name": recipe["name"], "status": obtain(client, recipe, allow_build)})
-        except (PoolError, OSError, subprocess.CalledProcessError) as e:
-            failures.append(recipe["name"] + ": " + str(e))
-    if failures:
-        raise PoolError("Adapter failures (other adapters were processed): " + "; ".join(failures))
+        check_stop()
+        results.append({"name": recipe["name"], "status": obtain(client, recipe, allow_build)})
     return results

@@ -1,21 +1,86 @@
-MIT License
+Homebrew Intel Bottle Pool Source-Available License
+Version 1.0, 2026-10-07
 
-Copyright (c) 2026 StefanAlMare
+Copyright (c) 2026 StefanAlMare. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Definitions
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+"Product" means the official, unmodified Homebrew Intel Bottle Pool release
+published by StefanAlMare, including its macOS application, server component,
+command-line client, documentation, and release archives.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+"Source Code" means the human-readable code, scripts, build files, tests, and
+other source materials in this repository or a source archive.
+
+"Written Permission" means an explicit authorization issued by StefanAlMare in
+a durable written form that identifies the permitted person or organization and
+the permitted use.
+
+2. Permission to download and use the Product
+
+You may, without charge, download and run an official, unmodified release of the
+Product for any lawful personal, educational, internal, or business operational
+purpose. This includes running the unmodified server component and clients as
+necessary to use the Product for its intended private bottle-pool function.
+
+You may make reasonable backup copies of an official release for your own use.
+This permission does not grant a right to redistribute, sell, sublicense, host
+for third parties, or offer the Product as a service.
+
+3. Source Code restrictions
+
+The Source Code is made available for transparency, security review, and
+evaluation. Except for viewing it, forking it through functionality provided by
+GitHub, and executing the unmodified Source Code solely as necessary to use the
+official Product under Section 2, no rights are granted to the Source Code.
+
+Without prior Written Permission from StefanAlMare, you may not:
+
+- copy Source Code into another project or product;
+- modify, adapt, translate, merge, or create derivative works from Source Code;
+- compile, package, or distribute modified versions;
+- redistribute or republish Source Code or substantial portions of it outside
+  the limited functionality permitted by GitHub's applicable terms;
+- remove or alter copyright, credit, license, or attribution notices;
+- use Source Code to create or provide a competing product or hosted service;
+- sublicense, sell, rent, lease, or otherwise commercially exploit Source Code.
+
+Any use not expressly permitted by Section 2 or this Section 3 requires prior
+Written Permission from StefanAlMare. Permission may include additional terms.
+
+4. Contributions
+
+No right to submit, merge, or use a contribution is implied. A contribution may
+be accepted only under separate written terms agreed with StefanAlMare. Opening
+an issue or pull request does not itself grant either party additional rights.
+
+5. Third-party software and names
+
+Third-party components, if any, remain subject to their own licenses. Homebrew
+and related names or marks belong to their respective owners. This Product is
+independent and is not affiliated with or endorsed by Homebrew.
+
+6. No warranty
+
+THE PRODUCT AND SOURCE CODE ARE PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT
+WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, SECURITY,
+OR ERROR-FREE OPERATION. YOU USE THEM AT YOUR OWN RISK.
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, STEFANALMARE SHALL NOT BE LIABLE FOR ANY
+CLAIM, LOSS, DATA LOSS, INTERRUPTION, OR OTHER DAMAGES ARISING FROM THE PRODUCT,
+SOURCE CODE, OR THEIR USE.
+
+7. Termination
+
+The permission in Section 2 terminates automatically if you violate this license.
+Upon termination, you must stop using and distributing any unauthorized copies
+or derivative works. Provisions concerning ownership, restrictions, warranty,
+and liability survive termination.
+
+8. Permission requests
+
+To request permission for source-code reuse, modification, integration,
+redistribution, derivative work, or another use not granted here, contact the
+GitHub account StefanAlMare and describe the exact intended use. Permission is
+not granted unless and until StefanAlMare provides explicit Written Permission.

@@ -9,9 +9,13 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .artifacts import compatible, refresh
+from .actions import ActionRequired, classify_command_failure
+from .artifacts import compatible, obtain
 from .client import Lease, Unavailable, local_lock
 from .common import PoolError, canonical, digest, validate, version_order
+from .jobs import Job, step
+from .preflight import Preflight, executable_candidate
+from .processes import JobStopped, check_stop, run_command
 
 MAC_TAGS = {11: "big_sur", 12: "monterey", 13: "ventura", 14: "sonoma", 15: "sequoia", 26: "tahoe"}
 
@@ -19,13 +23,15 @@ MAC_TAGS = {11: "big_sur", 12: "monterey", 13: "ventura", 14: "sonoma", 15: "seq
 class Brew:
     def __init__(self, client, executable=None):
         self.client = client
-        self.executable = executable or client.config.get("brew") or shutil.which("brew")
-        if not self.executable and Path("/usr/local/bin/brew").is_file():
+        self.executable = executable or client.config.get("brew") or shutil.which("brew", path=self.normalized_path(os.environ.get("PATH", "")))
+        if not self.executable and Path("/usr/local/Homebrew/bin/brew").is_file():
             self.executable = "/usr/local/bin/brew"
         if not self.executable:
             raise PoolError("Homebrew not found; configure brew or add it to PATH")
+        self.executable = executable_candidate(self.executable)
         self.env = dict(os.environ, HOMEBREW_NO_AUTO_UPDATE="1", HOMEBREW_NO_INSTALL_CLEANUP="1",
                         HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK="1", HOMEBREW_NO_ASK="1")
+        self.env["PATH"] = self.normalized_path(self.env.get("PATH", ""))
         self.prefix = self.run("--prefix")
         self.cellar = self.run("--cellar")
         self.cache = Path(self.run("--cache"))
@@ -40,17 +46,52 @@ class Brew:
         self.synced_taps = set()
         self.casks_seen = set()
         self.casks_active = set()
+        self.force_targets = set()
+
+    @staticmethod
+    def normalized_path(existing):
+        """Preserve the launch environment and add the standard Intel Brew paths."""
+        values = [x for x in existing.split(os.pathsep) if x]
+        for required in ("/usr/local/bin", "/usr/local/sbin"):
+            if required not in values:
+                values.append(required)
+        return os.pathsep.join(values)
 
     @staticmethod
     def run_system(*args):
-        return subprocess.check_output(args, text=True).strip()
+        return run_command(list(args))
 
     def run(self, *args, cwd=None, capture=True, env_extra=None):
         argv = [self.executable, *args]
         env = dict(self.env, **(env_extra or {}))
-        if capture:
-            return subprocess.check_output(argv, text=True, env=env, cwd=cwd).strip()
-        subprocess.run(argv, check=True, env=env, cwd=cwd)
+        try:
+            return run_command(argv, env=env, cwd=cwd, stream=not capture)
+        except subprocess.CalledProcessError as error:
+            action = classify_command_failure((error.output or "") + (error.stderr or ""), args[-1] if args else "")
+            if action:
+                raise action from error
+            raise
+
+    @staticmethod
+    def package_lines(output, taps=False):
+        """Diagnostics are never arguments. stderr is separate; stdout is allowlisted."""
+        clean = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+        pattern = r"[a-z0-9][a-z0-9_+@.-]*(?:/[a-z0-9][a-z0-9_+@.-]*){0,2}"
+        values = []
+        for line in clean.splitlines():
+            name = line.strip()
+            if not re.fullmatch(pattern, name) or any(x in (".", "..") for x in name.split("/")):
+                if name:
+                    print("Ignored Homebrew diagnostic: " + name, flush=True)
+                continue
+            if taps and name.count("/") != 1:
+                raise PoolError("Invalid tap name in Homebrew output: " + name)
+            if name not in values:
+                values.append(name)
+        return values
+
+    def preflight(self):
+        Preflight(self).run()
 
     def info_without_api(self, name):
         items = json.loads(
@@ -92,109 +133,13 @@ class Brew:
 
     def sync_tap_for_build(self, info):
         tap = info.get("tap") or "homebrew/core"
-        if tap not in self.run("tap").splitlines():
+        if tap not in self.package_lines(self.run("tap"), taps=True):
             self.run("tap", "--force", tap, capture=False)
-
         repo = Path(self.run("--repository", tap))
-        if not repo.is_dir() or not (repo / ".git").exists():
-            raise PoolError("Tap is not a Git checkout: " + tap)
-
-        status = self.run_system(
-            "git", "-C", str(repo), "status", "--porcelain"
-        )
-        if status:
-            raise PoolError(
-                "Refusing to update modified tap checkout: " + tap
-            )
-
-        branch = self.run_system(
-            "git", "-C", str(repo), "rev-parse", "--abbrev-ref", "HEAD"
-        )
-        if not branch or branch == "HEAD":
-            raise PoolError(
-                "Refusing to update detached tap checkout: " + tap
-            )
-
-        try:
-            remote = self.run_system(
-                "git", "-C", str(repo),
-                "config", "--get", f"branch.{branch}.remote",
-            )
-            merge_ref = self.run_system(
-                "git", "-C", str(repo),
-                "config", "--get", f"branch.{branch}.merge",
-            )
-        except subprocess.CalledProcessError as e:
-            raise PoolError(
-                "Tap branch has no configured upstream: " + tap
-            ) from e
-
-        if not remote or not merge_ref.startswith("refs/heads/"):
-            raise PoolError(
-                "Tap branch has an unsupported upstream: " + tap
-            )
-
-        remote_branch = merge_ref.removeprefix("refs/heads/")
-        upstream = remote + "/" + remote_branch
-
-        # A previously synchronized tap can become dirty, detached or locally
-        # committed during a long build. Recheck those guards before reusing it.
-        if tap in self.synced_taps:
-            counts = self.run_system("git", "-C", str(repo), "rev-list", "--left-right",
-                                     "--count", "HEAD..." + upstream).split()
-            if len(counts) != 2:
-                raise PoolError("Cannot determine tap divergence: " + tap)
-            ahead, behind = map(int, counts)
-            if ahead:
-                raise PoolError(f"Refusing tap with {ahead} local/divergent commit(s): {tap}")
-            if not behind:
-                try:
-                    self.verify_tap_formula(info)
-                    return
-                except PoolError:
-                    pass
-            self.synced_taps.discard(tap)
-
-        subprocess.run(
-            ["git", "-C", str(repo), "fetch", "--prune",
-             remote, remote_branch],
-            check=True,
-            env=self.env,
-        )
-
-        counts = self.run_system(
-            "git", "-C", str(repo),
-            "rev-list", "--left-right", "--count",
-            "HEAD..." + upstream,
-        ).split()
-
-        if len(counts) != 2:
-            raise PoolError("Cannot determine tap divergence: " + tap)
-
-        ahead, behind = map(int, counts)
-
-        # Never rewrite or discard local commits.
-        if ahead:
-            raise PoolError(
-                f"Refusing tap with {ahead} local/divergent commit(s): {tap}"
-            )
-
-        if behind:
-            subprocess.run(
-                ["git", "-C", str(repo),
-                 "merge", "--ff-only", upstream],
-                check=True,
-                env=self.env,
-            )
-
-        if self.run_system(
-            "git", "-C", str(repo), "status", "--porcelain"
-        ):
-            raise PoolError(
-                "Tap checkout became modified during synchronization: " + tap
-            )
-
+        Preflight(self).sync(repo, tap)
         self.verify_tap_formula(info)
+        self.synced_taps.add(tap)
+        print("Bottle tap synchronized: " + tap, flush=True)
         self.synced_taps.add(tap)
         print("Bottle tap synchronized: " + tap, flush=True)
 
@@ -223,14 +168,15 @@ class Brew:
     def check_options(self, info):
         for installed in info.get("installed", []):
             if installed.get("used_options") or installed.get("version", "").startswith("HEAD"):
-                raise PoolError("Custom options/HEAD need a separate reviewed variant: " + info["full_name"])
+                raise ActionRequired("Custom options or a HEAD build need a separately reviewed variant.",
+                                     category="unsafe_formula", subject=info["full_name"])
 
     def up_to_date(self, info):
         return not info.get("outdated") and any(x["version"] == self.pkg_version(info) for x in info.get("installed", []))
 
     def context(self, info):
         deps = {}
-        names = self.run("deps", "--full-name", info["full_name"]).splitlines()
+        names = self.package_lines(self.run("deps", "--full-name", info["full_name"]))
         for name in names:
             dep = self.info(name)
             self.check_options(dep)
@@ -302,6 +248,24 @@ class Brew:
             return True
 
     def ensure(self, name, allow_build=True, as_dependency=False):
+        job = getattr(self, "active_job", None)
+        previous = job.data.get("active_package", "") if job else ""
+        if job:
+            job.data["active_package"] = name
+            job.save()
+        try:
+            result = self._ensure(name, allow_build, as_dependency)
+            if job:
+                job.data["active_package"] = previous
+                job.save()
+            return result
+        except (PoolError, JobStopped, OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
+            if not isinstance(error, ActionRequired) and not getattr(error, "pool_failed_package", None):
+                error.pool_failed_package = name
+            raise
+
+    def _ensure(self, name, allow_build=True, as_dependency=False):
+        check_stop()
         info = self.info(name)
         name = info["full_name"]
         if name in self.seen:
@@ -310,13 +274,16 @@ class Brew:
         installed = info.get("installed", [])
         if installed:
             as_dependency = not any(x.get("installed_on_request", True) for x in installed)
-        if self.up_to_date(info):
+        if self.up_to_date(info) and name not in self.force_targets:
             self.seen.add(name)
             return
         if info.get("pinned"):
-            raise PoolError("Pinned dependency/formula needs manual review: " + name)
+            raise ActionRequired("Pinned dependency/formula needs manual review.",
+                                 category="unsafe_formula", subject=name,
+                                 choices=[{"id": "skip", "label": "Skip"},
+                                          {"id": "cancel", "label": "Cancel Upgrade"}])
         # A pool hit needs runtime dependencies, not the entire compiler toolchain.
-        deps = self.run("deps", "--topological", "--full-name", name).splitlines()
+        deps = self.package_lines(self.run("deps", "--topological", "--full-name", name))
         for dep in deps:
             self.ensure(dep, allow_build, as_dependency=True)
         info = self.info(name)
@@ -340,7 +307,7 @@ class Brew:
         self.sync_tap_for_build(info)
 
         # On a miss, build dependencies also participate in the same pool protocol.
-        build_deps = self.run("deps", "--include-build", "--include-test", "--topological", "--full-name", name).splitlines()
+        build_deps = self.package_lines(self.run("deps", "--include-build", "--include-test", "--topological", "--full-name", name))
         for dep in build_deps:
             self.ensure(dep, allow_build, as_dependency=True)
 
@@ -400,15 +367,23 @@ class Brew:
         if any(os.environ.get(k) for k in ("HOMEBREW_OPTFLAGS", "HOMEBREW_ARCH", "CFLAGS", "CXXFLAGS", "LDFLAGS")):
             raise PoolError("Unset custom compiler/CPU flags before producing shared bottles")
         tap = info.get("tap")
-        if tap and tap not in self.run("tap").splitlines():
+        if tap and tap not in self.package_lines(self.run("tap"), taps=True):
             self.run("tap", "--force", tap, capture=False)
         flags = ["--as-dependency"] if as_dependency else []
-        self.run("install", "--formula", "--build-bottle", *flags, name, capture=False)
+        action = "reinstall" if self.up_to_date(info) and name in self.force_targets else "install"
+        self.run(action, "--formula", "--build-bottle", *flags, name, capture=False)
         postinstalled = False
         try:
             with tempfile.TemporaryDirectory(prefix="bottle-", dir=str(self.client.state)) as work:
                 self.sync_tap_for_build(info)
-                self.run("bottle", "--json", "--keep-old", name, cwd=work, capture=False)
+                bottle_args = ["bottle", "--json", "--keep-old"]
+                root_url = (info.get("bottle", {}).get("stable", {}) or {}).get("root_url")
+                # Homebrew/core owns its canonical root selection. External taps must
+                # retain their declared bottle host instead of silently switching to
+                # ghcr.io/v2/homebrew/core during bottle generation.
+                if root_url and (info.get("tap") or "homebrew/core") != "homebrew/core":
+                    bottle_args.extend(["--root-url", root_url])
+                self.run(*bottle_args, name, cwd=work, capture=False)
                 bottles = list(Path(work).glob("*.bottle*.tar.gz"))
                 records = list(Path(work).glob("*.json"))
                 if len(bottles) != 1 or len(records) != 1:
@@ -465,25 +440,32 @@ class Brew:
             if len(items) == 1:
                 matches.append((candidate, items[0]))
         if len(matches) > 1:
-            raise PoolError("This name exists as both Formula and Cask. Select the type explicitly.")
+            raise ActionRequired("This name exists as both Formula and Cask.",
+                                 category="package_type", subject=name,
+                                 choices=[{"id": "formula", "label": "Use Formula"},
+                                          {"id": "cask", "label": "Use Cask"},
+                                          {"id": "cancel", "label": "Cancel"}])
         if not matches:
             raise PoolError("Package not found: " + name)
         return matches[0]
 
-    def install(self, name, kind="auto", allow_build=True, update=True, allow_mutable_cask=False):
+    def install(self, name, kind="auto", allow_build=True, update=True, allow_mutable_cask=False, mode="start"):
         with local_lock(self.client.state):
             self.validate_name(name)
-            if update:
-                self.run("update", capture=False)
-            resolved, info = self.resolve(name, kind)
-            print("Install via Pool: " + resolved + " " + name, flush=True)
-            print("Spool sync: " + str(self.client.sync()), flush=True)
-            if resolved == "formula":
-                self.ensure(info["full_name"], allow_build)
-            else:
-                self.cask(name, install=True, allow_mutable=allow_mutable_cask)
-            print("Spool sync: " + str(self.client.sync()), flush=True)
-            self.run("missing", capture=False)
+            job = Job(self.client.state)
+            if mode == "resume" and not job.data:
+                mode = "start"
+            if mode == "start":
+                steps = ([step("preflight"), step("update")] if update else [])
+                steps += [step("sync"), step("install", name, package_type=kind, mutable=allow_mutable_cask),
+                          step("sync"), step("missing")]
+                job.start("install", steps, dict(allow_build=allow_build))
+            if kind != "auto" and job.data:
+                for item in job.data["steps"]:
+                    if item["kind"] == "install":
+                        item["options"]["package_type"] = kind
+                        item["options"]["mutable"] = allow_mutable_cask
+            self._run_job(job, mode)
 
     def cask(self, name, install=False, allow_mutable=False):
         self.validate_name(name)
@@ -504,13 +486,19 @@ class Brew:
             raise PoolError("Expected one cask: " + name)
         info = records[0]
         if info.get("pinned"):
-            raise PoolError("Pinned cask needs manual review: " + name)
+            raise ActionRequired("Pinned cask needs manual review.", category="unsafe_formula",
+                                 subject=name,
+                                 choices=[{"id": "skip", "label": "Skip"},
+                                          {"id": "cancel", "label": "Cancel Upgrade"}])
         action = "install" if install and not info.get("installed") else "upgrade"
         checksum, version = info.get("sha256"), info.get("version")
         mutable = not checksum or checksum == "no_check" or version == "latest"
         if mutable and not allow_mutable:
-            raise PoolError("This cask has no fixed version/checksum and cannot be pooled safely: " + name
-                            + ". Enable upstream-only casks explicitly to install it without publication.")
+            raise ActionRequired("This cask has no fixed version/checksum and cannot be pooled safely.",
+                                 category="unsafe_formula", subject=name,
+                                 detail="Enable upstream-only casks explicitly to install it without publication.",
+                                 choices=[{"id": "skip", "label": "Skip"},
+                                          {"id": "cancel", "label": "Cancel"}])
         # A cask can have formula dependencies. Process them through the pool too.
         for dependency in (info.get("depends_on") or {}).get("formula", []):
             self.ensure(dependency, as_dependency=True)
@@ -558,35 +546,71 @@ class Brew:
         # this verified cache entry using its usual quarantine/installer handling.
         self.run(action, "--cask", name, capture=False)
 
-    def upgrade(self, names=(), allow_build=True, update=True, casks=True):
+    def upgrade(self, names=(), allow_build=True, update=True, casks=True, skip=(), mode="start"):
         with local_lock(self.client.state):
-            if update:
-                self.run("update", capture=False)
-            print("Spool sync: " + str(self.client.sync()), flush=True)
+            job = Job(self.client.state)
+            if mode == "resume" and not job.data:
+                mode = "start"
+            if mode == "start":
+                steps = ([step("preflight"), step("update")] if update else [])
+                steps += [step("discover"), step("sync"), step("sync"), step("missing")]
+                job.start("upgrade", steps, dict(names=list(names), allow_build=allow_build, casks=casks))
+            self._run_job(job, mode, skip)
+
+    def _run_job(self, job, mode, skip=()):
+        self.active_job = job
+        if mode == "retry":
+            self.force_targets = {s["name"] for s in job.failures}
+            self.force_targets.update(s["failed_package"] for s in job.failures if s.get("failed_package"))
+        interrupted = [s for s in job.remaining if s.get("interrupted") or s["status"] == "running"]
+        self.force_targets.update(s["name"] for s in interrupted)
+        self.force_targets.update(s["failed_package"] for s in interrupted if s.get("failed_package"))
+        if job.data and job.data.get("active_package"):
+            self.force_targets.add(job.data["active_package"])
+        job.run(self._execute_step, "retry" if mode == "retry" else "resume", skip)
+
+    def _execute_step(self, item, job):
+        kind, name = item["kind"], item["name"]
+        allow_build = job.data["options"]["allow_build"]
+        if kind == "preflight":
+            self.preflight()
+        elif kind in ("update", "missing"):
+            self.run(kind, capture=False)
+        elif kind == "discover":
             outdated = json.loads(self.run("outdated", "--json=v2"))
-            targets = list(names) or [x["name"] for x in outdated["formulae"] if not x.get("pinned")]
-            failures = []
-            for name in targets:
-                try:
-                    self.ensure(name, allow_build)
-                except (PoolError, OSError, subprocess.CalledProcessError) as e:
-                    failures.append(name + ": " + str(e))
-                    print("Retained/deferred: " + failures[-1], flush=True)
-            if casks and not names:
-                for item in outdated.get("casks", []):
-                    if item.get("pinned"):
-                        continue
-                    try:
-                        self.cask(item["name"])
-                    except (PoolError, OSError, subprocess.CalledProcessError) as e:
-                        failures.append(item["name"] + ": " + str(e))
-                        print("Retained/deferred: " + failures[-1], flush=True)
-            try:
-                print("External adapters: " + str(refresh(self.client, allow_build)), flush=True)
-            except (PoolError, OSError, subprocess.CalledProcessError) as e:
-                failures.append("external adapters: " + str(e))
-            print("Spool sync: " + str(self.client.sync()), flush=True)
-            # Complete Brew's usual dependent/linkage handling after the controlled passes.
-            self.run("missing", capture=False)
-            if failures:
-                raise PoolError("Some items were deferred or failed:\n" + "\n".join(failures))
+            requested = job.data["options"].get("names", [])
+            names = requested or [x["name"] for x in outdated["formulae"] if not x.get("pinned")]
+            packages = [step("formula", x) for x in names]
+            if job.data["options"].get("casks") and not requested:
+                packages += [step("cask", x["name"]) for x in outdated.get("casks", []) if not x.get("pinned")]
+            packages += [step("adapter", x["name"]) for x in self.client.config.get("artifacts", [])]
+            index = job.data["steps"].index(item)
+            job.data["steps"][index + 2:index + 2] = packages
+        elif kind == "sync":
+            results = self.client.sync()
+            print("Spool sync: " + str(results), flush=True)
+            errors = [x for x in results if x.startswith("retained:")]
+            if errors:
+                raise PoolError("; ".join(errors))
+        elif kind == "formula":
+            self.ensure(name, allow_build)
+        elif kind == "cask":
+            self.cask(name)
+        elif kind == "install":
+            resolved, info = self.resolve(name, item["options"]["package_type"])
+            if resolved == "formula":
+                if name in self.force_targets:
+                    self.force_targets.add(info["full_name"])
+                self.ensure(info["full_name"], allow_build)
+            else:
+                self.cask(name, install=True, allow_mutable=item["options"]["mutable"])
+        elif kind == "adapter":
+            recipe = next((x for x in self.client.config.get("artifacts", []) if x["name"] == name), None)
+            if recipe is None:
+                raise PoolError("Saved adapter no longer exists: " + name)
+            result = obtain(self.client, recipe, allow_build)
+            if result == "deferred":
+                raise PoolError("Adapter build deferred: " + name)
+            print("External adapter: " + name + ": " + result, flush=True)
+        else:
+            raise PoolError("Unknown saved step: " + kind)

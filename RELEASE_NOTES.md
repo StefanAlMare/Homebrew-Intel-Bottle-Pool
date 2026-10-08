@@ -1,108 +1,112 @@
 # Homebrew Intel Bottle Pool 0.3.5 — Release Notes
 
-8 octombrie 2026. Intel x86_64, minimum macOS 12, build 35.
+October 8, 2026. Intel x86_64, macOS 12 or newer, build 35.
 
-## Proveniență și recuperare
+## Provenance and recovery
 
-Blocajul analizat la gobject-introspection 1.86.0_4 apărea când identitatea unei
-rețete din API se schimba deși dependența instalată rămânea aceeași. Clientul
-folosește acum SHA-256 al fișierului `.brew/FORMULA.rb` din keg-ul curent.
-Schimbarea versiunii instalate sau a rețetei instalate schimbă varianta; o
-schimbare exclusiv API a dependenței nu o schimbă. Lipsa dovezii, citirea eșuată
-și rețetele/directoarele legate simbolic opresc publicarea cu diagnostic.
+The investigated gobject-introspection 1.86.0_4 failure occurred when API recipe
+identity changed while the installed dependency remained unchanged. The client
+now uses the SHA-256 of `.brew/FORMULA.rb` in the current installed keg. A change
+to the installed version or installed recipe changes the variant; an API-only
+change to dependency metadata does not. Missing evidence, read failures, and
+symbolically linked recipes/directories stop publication with a diagnostic.
 
-Planificarea folosește explicit graful declarat pentru platformă (`brew deps
---os=TAG`), nu graful runtime al unui keg existent. Codul Homebrew local arată că
-fără această opțiune `deps` poate citi runtime_dependencies din receipt: înainte
-de upgrade este keg-ul vechi, după upgrade este keg-ul nou. Jurnalul harfbuzz
-14.5.1 → 14.6.0, cu brotli absent → 1.2.0, este compatibil cu acest mecanism;
-jurnalul singur nu exclude o modificare concurentă de rețetă.
+Planning explicitly selects the declared platform graph with `brew deps --os=TAG`
+instead of the runtime graph of an existing keg. The local Homebrew implementation
+shows that, without this selection, `deps` can read `runtime_dependencies` from
+the receipt: the old keg before an upgrade and the new keg afterward. The harfbuzz
+14.5.1 → 14.6.0 log, with brotli changing from absent to 1.2.0, is consistent with
+this mechanism. The log alone does not rule out a concurrent recipe change.
 
-La un build sursă, instalarea și comenzile ulterioare folosesc rețetele locale
-sincronizate, cu instalarea din API dezactivată. HEAD-ul tap-ului este păstrat și
-verificat; un tap modificat sau schimbat concurent oprește execuția. Preflight și
-build-ul împart evidența sincronizării: fetch-ul nu se repetă în aceeași operație.
-Verificările locale de siguranță și de rețetă se repetă fără fetch.
+For source builds, installation and subsequent commands use synchronized local
+recipes with installation from the API disabled. The client pins and verifies
+tap HEAD; local modifications or concurrent tap changes stop execution. Preflight
+and building share synchronization evidence, avoiding repeated fetches within
+the same operation. Local safety and recipe checks still run on every use.
 
-Recuperarea este limitată la o singură refacere a planului per pachet/per execuție,
-cu graful recitit și lease nou. Înainte de compilare aceasta nu compilează nimic.
-După o schimbare reală în timpul build-ului, primul artifact este refuzat; se
-repară dependențele necesare și se permite un singur rebuild tranzacțional.
-O a doua schimbare oprește operația. Lipsa provenienței și dependențele runtime
-nedeclarate nu sunt ignorate sau acceptate automat. `brew linkage --test` verifică
-rezultatul înainte de enqueue/publicare.
+Recovery allows at most one replan per package per execution, rereading the graph
+and acquiring a new lease. A pre-build replan performs no compilation. If actual
+inputs change during a build, the first artifact is rejected; required
+dependencies are repaired and one transactional rebuild is allowed. A second
+change stops the operation. Missing provenance and undeclared runtime dependencies
+are never ignored or automatically accepted. `brew linkage --test` validates the
+result before enqueueing or publication.
 
-Dovezile locale `build-proofs` păstrează contextul runtime, intrările build/test,
-hash-ul rețetei instalate și identitatea keg-ului imediat după compilare. Copia
-`.brew` este verificată prin transformarea exactă folosită de Homebrew pentru
-eliminarea blocului bottle, după verificarea checksum-ului sursei complete.
-Retry sare peste recompilare numai când dovada, rețeta
-instalată și toate intrările corespund planului curent. Un keg legacy fără această
-dovadă poate necesita un rebuild verificat; nu se pretinde că o compilare veche
-cu proveniență incompletă este sigură. Rollback-ul 0.3.4 este păstrat.
+Local `build-proofs` record runtime context, build/test inputs, the installed
+recipe hash, and keg identity immediately after compilation. The `.brew` copy
+is checked using Homebrew's exact bottle-block removal transformation, after
+verifying the complete source checksum. Retry skips recompilation only when the
+proof, installed recipe, and all inputs match the current plan. A legacy keg
+without this evidence may require a verified rebuild; an old compilation with
+incomplete provenance is not assumed safe. Transactional rollback from 0.3.4
+is preserved.
 
-## Conflicte de publicare și sincronizare
+## Publication conflicts and synchronization
 
-La pasul `node`, jurnalul și spool-ul local identifică `googletest 1.18.0` drept
-pachetul eșuat. Două intrări locale conțin același SHA-256, rang și context.
-Manifestul serverului nu a fost citit în această investigație, deci nu se afirmă
-dacă diferența de pe server era în bytes sau context. Defectul general identificat:
-rețeta formulei participa la context, dar nu la cheia variantei. O rețetă schimbată
-fără un nou rang putea ocupa aceeași cheie și provoca refuzuri repetate.
+At the `node` step, the local log and spool identify `googletest 1.18.0` as the
+failed package. Two local entries have the same SHA-256, rank, and context. The
+server manifest was not read during this investigation, so the remote difference
+is not attributed to either bytes or context. The general defect identified was
+that formula recipe identity participated in context but not in the variant key.
+A recipe change without a new rank could occupy the same key and cause repeated
+publication refusals.
 
-Varianta include acum și SHA-256 al formulei, marcat `formula-runtime-v1`.
-La un conflict între două build-uri locale cu același rang, clientul poate păstra
-bottle-ul publicat numai dacă versiunea, contextul runtime și intrările build/test
-sunt identice și descărcarea verifică If-Match, dimensiunea și SHA-256. Este o
-singură încercare; serverul nu este suprascris. Un context schimbat, o dovadă
-lipsă sau un checksum oficial diferit continuă să oprească publicarea.
-Intrările Homebrew legacy din spool sunt mutate automat, fără schimbarea
-manifestului sau payload-ului, în `spool/quarantine` pentru analiză. Nu sunt
-reîncercate, relabelate sau șterse; celelalte intrări pot continua sincronizarea.
+Variant identity now also includes the formula SHA-256, marked `formula-runtime-v1`.
+When two local builds conflict at the same rank, the client may retain the
+published bottle only if version, runtime context, and build/test inputs are
+identical and its download passes If-Match, size, and SHA-256 checks. This is a
+single attempt and never overwrites the server artifact. Changed context, missing
+evidence, or a different official checksum still blocks publication.
 
-## Compatibilitate
+Legacy Homebrew spool entries are moved automatically to `spool/quarantine` for
+review without changing their manifests or payloads. They are not retried,
+relabelled, or deleted; other entries can continue synchronizing.
 
-Protocolul pool, spool-ul și job.json rămân schema 1. Nu este necesară o migrare
-pe server. Variantele 0.3.5 au un identificator distinct inclusiv pentru formule
-fără dependențe, evitând conflicte de rang cu artefactele legacy. Artefactele
-vechi nu sunt șterse, relabelate sau acceptate drept proveniență nouă. Prima
-construcție a unei variante noi poate fi necesară; clienții vechi își păstrează
-propriile variante. Configurația, tokenul și coada existentă sunt păstrate.
-Retry execută numai pașii failed; cei pending sunt executați prin Resume.
+## Compatibility
 
-## Aplicație, teste și documentație
+The pool protocol, spool, and `job.json` remain schema 1. No server migration is
+required. Version 0.3.5 variants use a distinct identity even for formulae without
+dependencies, avoiding rank conflicts with legacy artifacts. Existing artifacts
+are not deleted, relabelled, or accepted as new provenance. The first build of a
+new variant may be necessary; old clients retain their own variants.
+Configuration, token, and existing queue are preserved. Retry runs only failed
+steps; Resume runs the pending steps.
 
-- versiune 0.3.5 / build 35 în client, bundle, installer și scripturile de pachet;
-- sunt corectate regresiile commitului inițial: verificările de siguranță ale
-  tap-urilor cached, fixture-ul fără rețetă instalată și testul bundle-ului care
-  mai aștepta build 34;
-- 160 de teste trecute, fără skip; regresii pentru proveniență, graf, publicare
-  concurentă, păstrarea spool-ului legacy, transportul notarizării și oprirea publicării înainte de verificări;
-  rezultatele suitei complete sunt raportate în VALIDATION.md;
-- test funcțional al aplicației cu Retry/Resume/Stop și test Homebrew real
-  într-un prefix temporar: build/bottle/pool/pour/test, plus cask reutilizat cu
-  upstream ascuns și payload verificat prin SHA-256;
-- verificatorul permite fișierul rezervat al ticketului Apple numai după
-  validarea lui; ticket fals sau symlink este refuzat. Rebuild-ul păstrează
-  produsul anterior separat, astfel încât ticketul vechi să nu fie copiat în
-  aplicația nouă;
-- SourceManifest.json leagă bundle-ul semnat de commit și de inputurile reale;
-  sursele din app, source ZIP și tag trebuie să corespundă;
-- introducere README refăcută, diagramă How it works nouă în PNG și SVG, plus
-  actualizări pentru instalare, upgrade, Retry/Resume, Quick Start și Changelog;
-- RELEASING.md descrie ordinea locală build → teste → semnare → notarizare →
-  stapling → verificări containere/hash-uri → publicare finală;
-- notarizarea poate folosi profilul existent de pe un Mac autorizat prin SSH,
-  cu verificarea hostului și a hash-ului arhivei; credențialele rămân pe acel Mac;
-- branch-ul implicit stable primește numai commitul final; v0.3.5 devine public
-  și latest numai după verificarea artefactelor descărcate din draft.
+## Application, tests, and documentation
 
-## Distribuție
+- Version 0.3.5 / build 35 in the client, bundle, installer, and packaging scripts.
+- Fixes to the initial commit's regressions: cached-tap safety checks, a legacy
+  fixture without an installed recipe, and the bundle test still expecting build 34.
+- All 160 tests passed with no skips, covering provenance, graphs, concurrent
+  publication, legacy spool preservation, notary transport, and publication gates.
+  See VALIDATION.md for the complete validation record.
+- Compiled application workflow tests for Retry/Resume/Stop, plus a real Homebrew
+  test in a disposable prefix: build/bottle/pool/pour/test and Cask reuse with its
+  upstream archive hidden and installed payload verified by SHA-256.
+- Apple's reserved ticket file is accepted only after validation. Forged or linked
+  tickets are rejected. A rebuild preserves the previous local product separately
+  so its old ticket cannot be merged into the new application.
+- SourceManifest.json binds the signed bundle to its commit and actual build
+  inputs. Embedded sources, the source ZIP, and the release tag must agree.
+- Updated README introduction, How it works PNG/SVG, installation and upgrade
+  instructions, Retry/Resume guidance, Quick Start, and Changelog.
+- English throughout the current repository documentation and distributed assets.
+  The English documentation refresh rebuilds and notarizes the bundle to preserve
+  the exact commit binding; application behavior is unchanged.
+- RELEASING.md documents local build → tests → signing → notarization → stapling
+  → container/checksum verification → final publication.
+- Notarization can use an existing profile on an authorized SSH host, with strict
+  host and archive checks. Credentials remain on the Mac that owns the profile.
+- The default `stable` branch receives the final commit. Publication verifies
+  downloaded artifacts before making a new release public/latest.
 
-Build-ul se produce local pe Intel macOS. Release-ul final necesită Developer ID
-Application, Team YWVVK7QZ6X, notarizare Accepted pentru app și DMG, stapling,
-Gatekeeper și verificarea conținutului ZIP/DMG față de sursele commitului.
-SHA256SUMS.txt acoperă artefactele, documentele distribuite, diagrama și dovezile
-notarizării. GitHub este folosit
-pentru distribuție; nu se folosesc GitHub Actions sau compilări găzduite.
-Consultați VALIDATION.md pentru verificările efectiv finalizate și limitări.
+## Distribution
+
+Builds run locally on Intel macOS. Final distribution requires Developer ID
+Application signing for Team YWVVK7QZ6X, Apple Accepted results for the app and DMG,
+attached and validated tickets, Gatekeeper acceptance, and ZIP/DMG contents
+matching the committed source. SHA256SUMS.txt covers the artifacts, distributed
+documents, diagram, and notarization evidence. GitHub provides distribution;
+GitHub Actions and hosted compilation are not used.
+
+See VALIDATION.md for completed checks and practical limitations.

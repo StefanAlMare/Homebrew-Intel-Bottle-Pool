@@ -1,109 +1,117 @@
 # Validation — Homebrew Intel Bottle Pool 0.3.5
 
-8 octombrie 2026. Acest document separă rezultatele testelor locale de condițiile
-care trebuie confirmate pentru fiecare produs final. O copie dintr-un branch nu
-certifică singură existența unui release public.
+October 8, 2026. This report distinguishes completed local tests from the checks
+required for each final distribution. A branch checkout alone does not prove
+that a public release exists.
 
-## Audit independent
+## Independent audit
 
-Commitul inițial 4c9c880: 120 teste, 3 failures, 1 error, 3 skipped (bundle absent).
-Verificarea tap-ului local fusese omisă la sincronizările cached (testul este
-redescoperit și prin importuri). Fixture-ul legacy nu furniza rețeta instalată
-pentru dependență. Testul bundle-ului aștepta încă build 34 în loc de build 35.
-Aceste probleme au fost corectate, fără slăbirea verificărilor de producție.
+Initial commit 4c9c880: 120 tests, three failures, one error, and three skips
+because the bundle was absent. Cached synchronization omitted the local tap
+safety check; this test is also rediscovered through imports. The legacy fixture
+did not provide an installed dependency recipe. The bundle test still expected
+build 34 instead of 35. These issues were fixed without weakening production
+checks.
 
-## Verificări finalizate
+## Completed checks
 
-Suita completă extinsă a trecut toate cele **160 de teste**, fără skip, cu bundle
-local Intel 0.3.5, build 35. Include regresiile de publicare și notarizare, plus
-cele cinci verificări ale opririi publicării înainte de contactarea GitHub.
-Testele acoperă schema 1, server fixture loopback, lease/fencing,
-spool offline, Retry/Resume/Stop, rollback, installer în directoare temporare,
-proveniență, graf declarat, schimbări reale runtime/build/test și sursele bundle.
+The expanded suite passed all **160 tests**, with no skips, using the local Intel
+0.3.5 bundle, build 35. Coverage includes publication and notarization regressions
+and the five publication-gate/asset-manifest checks. The suite exercises schema 1,
+a loopback fixture server, leases/fencing, offline spool, Retry/Resume/Stop,
+rollback, installation into temporary directories, provenance, declared graphs,
+actual runtime/build/test changes, and embedded bundle sources.
 
-Regresiile noi verifică: API-only dependency changes cu identitate stabilă;
-rețetă/versiune instalată schimbată cu variantă nouă; dovezi lipsă/symlink refuzate;
-variante legacy separate și neconsumate; Retry cu șase și cinci pași pending;
-tranziția old-keg/new-keg fără recompilare falsă; drift real cu un singur rebuild;
-drift repetat oprit după două build-uri; reutilizare fără recompilare numai cu
-build proof valid; runtime nedeclarat refuzat; input build-only schimbat; tap-uri
-locale modificate/divergente refuzate; snapshot după update fără fetch suplimentar;
-transformarea exactă a blocului bottle și newline-uri păstrate; surse modificate
-în bundle respinse. Dovezile sunt legate de keg și invalidate la rollback.
+New regressions cover API-only dependency changes with stable identity; changed
+installed recipes/versions with new variants; rejected missing or linked evidence;
+separate, unconsumed legacy variants; Retry with six or five pending steps;
+old-keg/new-keg transitions without false recompilation; actual drift with one
+rebuild; repeated drift stopped after two builds; reuse only with a valid build
+proof; rejected undeclared runtime dependencies; changed build-only inputs;
+rejected modified/divergent local taps; post-update snapshots without additional
+fetches; exact bottle-block removal preserving other bytes/newlines; and rejected
+modified embedded sources. Build proofs are bound to the keg and invalidated on
+rollback.
 
-În citire, receipt-urile reale harfbuzz 14.5.1 și 14.6.0 confirmă brotli absent în
-primul și 1.2.0 în al doilea. Codul local Homebrew citește runtime_dependencies
-din keg când deps nu selectează explicit modul recipe. Normalizarea sursei reale
-harfbuzz din tap produce exact hash-ul copiei .brew instalate pentru 14.6.0.
-Aceste verificări nu au rulat comenzi Homebrew mutative.
+Read-only inspection of real harfbuzz 14.5.1 and 14.6.0 receipts confirmed brotli
+absent from the former and at 1.2.0 in the latter. The local Homebrew implementation
+reads `runtime_dependencies` from the keg when dependency queries do not explicitly
+select recipe mode. Normalizing the actual harfbuzz tap source produced the exact
+hash of the installed 14.6.0 `.brew` copy. These checks ran no mutating Homebrew
+commands.
 
-Jurnalul local de la pasul node și manifestele spool-ului identifică
-googletest 1.18.0 ca dependență eșuată, cu două copii locale identice.
-Manifestul remote nu a fost citit; bytes/context de pe server rămân neconfirmate.
-Sunt adăugate regresii pentru variante separate la schimbarea formulei,
-reutilizarea verificată a unui build publicat, context/build inputs diferite
-refuzate, checksum upstream nesubstituit și carantină legacy fără modificarea
-bytes-urilor. Transportul notarizării verifică SSH, hash-ul transferat și păstrează
-profilul exclusiv pe Mac-ul care îl deține.
+The local `node` log and spool manifests identify googletest 1.18.0 as the failed
+dependency, with two identical local copies. The remote manifest was not read;
+remote bytes/context remain unconfirmed. Regressions cover separate variants
+after formula changes, verified reuse of an already published build, rejected
+context/build-input mismatches, preservation of upstream checksums, and legacy
+quarantine without byte changes. Notary transport checks SSH authentication and
+host identity, verifies the transferred archive hash, and keeps credentials on
+the Mac that owns the profile.
 
-Fluxul aplicației compilate a trecut verificarea izolată cu procese reale:
-oprire la primul eșec, păstrarea numărului de erori, Retry numai failed, Resume
-remaining, Stop cu închiderea copilului, Stop/Resume, Quit disponibil în Busy,
-configurație izolată și reconcilierea UI stale la lansare. Fixture-ul de bottle
-folosește tag-ul all, evitând presupunerea greșită că orice Mac rulează Tahoe.
+The compiled application passed an isolated workflow check with real child
+processes: pause on first error, persistent failure count, Retry only failed
+steps, Resume remaining steps, Stop with child cleanup, Stop/Resume, Quit while
+Busy, isolated configuration, and reconciliation of stale UI state at cold launch.
+The bottle fixture uses the `all` tag rather than assuming every Mac runs Tahoe.
 
-Testul funcțional Homebrew real a trecut pe Intel macOS 15.8.1, într-un prefix
-temporar: compilare C → bottle → server schema 1 local → dezinstalare temporară
-→ pour exclusiv din pool → brew test și executarea programului. Cask-ul temporar
-a trecut download → pool → dezinstalare → reinstalare cu sursa upstream ascunsă;
-SHA-256 al executabilului instalat corespunde celui original. Aplicația sintetică
-nesemnată nu este lansată ca test de Gatekeeper. Ruby, cache, loguri, Cellar și
-Applications sunt izolate; niciun pachet real al utilizatorului nu este modificat.
+The real Homebrew functional test passed on Intel macOS 15.8.1 in a disposable
+prefix: compile C → bottle → local schema 1 server → temporary uninstall →
+pool-only pour → brew test and execution. The disposable Cask passed download →
+pool → uninstall → reinstall with the upstream archive hidden. The installed
+executable's SHA-256 matched the original payload. The unsigned synthetic app is
+not launched as a Gatekeeper test. Ruby, cache, logs, Cellar, and Applications are
+isolated; no real user package is modified.
 
-## Gate de distribuție
+One pre-publication run encountered a loopback connection timeout in the legacy
+compatibility fixture. That test subsequently passed five isolated repetitions,
+and complete serial runs passed all 160 tests without relaxing any assertion.
 
-Build-ul final trebuie să provină dintr-un checkout curat pe branch-ul autorizat.
-SourceManifest.json este inclus în semnătură și leagă commitul de inputurile Swift,
-plist, icon și Python. Gate-ul verifică sursele byte-for-byte, fișierele exacte,
-x86_64, build 35, Developer ID Team YWVVK7QZ6X, runtime și timestamp.
-Containerele DMG/ZIP sunt comparate cu app-ul semnat; source ZIP este comparat cu
-fiecare fișier Git, iar SHA256SUMS.txt este verificat. Publicarea cere și Accepted,
-stapling și Gatekeeper pentru app/DMG, apoi descarcă release-ul pentru reverificare.
+## Distribution gates
 
-Pentru o distribuție finală, `app-notarization.json` și `dmg-notarization.json`
-trebuie să raporteze Accepted, iar ticket-urile reale ale app/DMG trebuie să treacă
-stapler și Gatekeeper. Logurile notarizării sunt incluse în artefacte și hash-uri.
-Credențialele sunt folosite prin profilul notarytool din Keychain, fără extragere
-sau transmitere în conversație. Utilizatorul a autorizat configurarea locală a
-unei parole specifice aplicației, introdusă direct în promptul securizat Apple;
-certificatul Developer ID existent este păstrat. Un bundle semnat sau checksum-uri
-corecte nu constituie confirmare de notarizare.
+The final build must come from a clean checkout on the authorized branch.
+SourceManifest.json is signed with the bundle and binds its commit to Swift,
+plist, icon, and Python inputs. Gates compare source bytes and expected files,
+verify x86_64/build 35, and require Developer ID Team YWVVK7QZ6X, hardened runtime,
+and a timestamp. DMG/ZIP apps are compared with the signed original; every source
+ZIP file is compared with Git, and SHA256SUMS.txt is verified. Final distribution
+also requires Accepted results, attached tickets, and Gatekeeper acceptance for
+both app and DMG.
 
-Documentația și diagrama How it works au fost refăcute pentru întregul flux 0.3.5.
-Gate-ul cere toate documentele și PNG/SVG în source ZIP și în setul final de
-artefacte. Publicarea verifică toate fișierele descărcate din draft înainte de
-actualizarea branch-ului implicit stable și de marcarea release-ului v0.3.5 ca
-public/latest. Pregătirea se face exclusiv local; main și CI nu sunt folosite.
+`app-notarization.json` and `dmg-notarization.json` must report Accepted. Their
+matching Apple logs and actual app/DMG tickets must pass validation. The logs are
+included in the released assets and checksum manifest. Credentials are used
+through the notarytool Keychain profile without extraction or chat transmission.
+An authorized app-specific password is entered directly into Apple's secure local
+prompt; the existing Developer ID certificate is retained. A signature or valid
+checksum alone is not proof of notarization.
 
-Codul serverului, validarea protocolului și formatul job-urilor (`server.py`,
-`common.py`, `jobs.py`) sunt identice cu stable fee50c4; noile câmpuri de
-proveniență sunt metadata acceptate de schema 1. Compatibilitatea este verificată
-și prin serverul local real, fără schimbarea serviciului NAS.
+All seven public documents and both How it works diagram formats are required in
+the source ZIP and final asset set. Publication verifies downloaded assets before
+updating `stable` and publishing a new release. The English documentation refresh
+also rebuilds/notarizes locally, replaces the v0.3.5 source/tag/assets together,
+and verifies public downloads against the local final set. No application behavior
+changes are introduced by this language refresh.
 
-Formatul ticketului Apple a fost confirmat în citire pe backup-ul notarizat:
-`Contents/CodeResources` este un fișier regular separat de semnătură, iar
-stapler validate reușește. Verificatorul acceptă această singură adăugare numai
-cu ticket valid, după controalele surselor și semnăturii. Ticket fals și symlink
-sunt refuzate. La rebuild, produsul local anterior este păstrat separat înainte
-de copiere, evitând moștenirea unui ticket vechi prin comportamentul merge al ditto.
-Acest control nu certifică notarizarea noului bundle; acesta are nevoie de
-propriul Accepted și propriul ticket.
+Server code, protocol validation, and the job format (`server.py`, `common.py`,
+`jobs.py`) are identical to stable fee50c4. New provenance fields are metadata
+accepted by schema 1. Compatibility is tested against a real local server without
+changing the NAS service.
 
-## Limite și producție
+Read-only inspection of a previously notarized backup confirmed Apple's ticket
+format: `Contents/CodeResources` is a regular file separate from the code
+signature, and stapler validation succeeds. The verifier accepts this one reserved
+addition only with a valid ticket, after checking sources and signatures. Forged
+tickets and symbolic links are rejected. Rebuilds preserve the previous local
+product separately before copying the replacement, preventing stale tickets from
+surviving ditto's merge behavior. Each new bundle needs its own Accepted result
+and ticket.
 
-Nu s-au executat operații Homebrew mutative sau Retry asupra cozii reale.
-Nu s-au modificat aplicația instalată, TrueNAS, configurația, tokenul sau spool-ul.
-Nu s-au declanșat GitHub Actions/CI; repository-ul raportează zero workflow-uri.
-Nu este efectuată validarea fizică pe al doilea Mac sau un nou build real al
-formulelor pe instalația utilizatorului. Variantele legacy nu sunt migrate;
-keg-urile fără dovadă completă pot necesita un rebuild verificat.
+## Limits and production state
+
+No mutating Homebrew operation or Retry was run against the live queue. The
+installed app, TrueNAS, configuration, token, and spool were not changed. No
+GitHub Actions/CI or hosted builds were triggered; the repository has zero
+workflows. Physical validation on a second Mac and new builds of the affected
+formulae in the user's live installation have not been performed. Legacy variants
+are not migrated. Kegs without complete evidence may require a verified rebuild.

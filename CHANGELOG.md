@@ -1,121 +1,89 @@
 # Changelog
 
-## 0.3.5 — 8 octombrie 2026
+## 0.3.5 — October 8, 2026
 
-- identifică dependențele prin rețeta `.brew` a keg-ului instalat; schimbările API nu invalidează keg-uri neschimbate;
-- oprește publicarea când proveniența lipsește sau folosește symlink-uri;
-- separă explicit variantele noi de variantele legacy, păstrând protocolul schema 1;
-- elimină schimbarea implicită old-keg/new-keg a grafului prin selectarea explicită a rețetei pentru platformă;
-- fixează rețetele locale și HEAD-ul tap-ului pe durata build-ului;
-- reface planul cel mult o dată per pachet: rebuild sigur numai la schimbarea reală a intrărilor;
-- păstrează dovezi runtime/build/test pentru evitarea recompilării la Retry și verifică separat runtime/linkage;
-- păstrează verificările tap-ului local fără fetch repetat;
-- adaugă regresii pentru schema 1, Retry cu șase pași pending, proveniență și recuperare limitată;
-- corectează testul bundle-ului pentru build 35 și închide publicarea la diferențe între surse și bundle.
-- actualizează introducerea README, diagrama How it works (PNG și SVG), instalarea,
-  Quick Start, notele, validarea și ghidul complet al publicării locale;
-- include rețeta formulei în variantă, evitând conflicte fără schimbare de rang;
-- verifică și reutilizează câștigătorul unui conflict de build local numai cu
-  aceleași intrări dovedite, fără suprascriere; păstrează spool-ul legacy separat;
-- corectează testul funcțional al aplicației pentru a rula și pe macOS anterior
-  Tahoe; testul Homebrew real copiază Ruby în prefixul temporar și verifică
-  identitatea payload-ului cask fără lansarea unei aplicații sintetice nesemnate;
-- automatizează folosirea profilului notarytool existent prin SSH autorizat,
-  fără transferul credențialelor și cu verificarea arhivei înainte de trimitere;
-- permite ticketul Apple valid în bundle, refuză ticket fals/symlink și evită
-  moștenirea unui ticket vechi la regenerarea produsului local;
-- publicarea finală actualizează branch-ul implicit stable și release-ul v0.3.5;
-  verifică artefactele descărcate înainte de marcarea release-ului ca public/latest.
+- Identify dependencies by the `.brew` recipe in the installed keg; API changes do not invalidate unchanged installed kegs.
+- Stop publication with a diagnostic when provenance is missing or relies on symbolic links.
+- Keep new and legacy variants separate while preserving the schema 1 protocol.
+- Select the declared platform dependency graph explicitly, avoiding implicit switches between old and new installed-keg graphs.
+- Pin local recipes and tap HEAD throughout each build.
+- Replan at most once per package; rebuild safely only when actual inputs change.
+- Keep runtime/build/test evidence to avoid unnecessary recompilation on Retry, and validate runtime dependencies and linkage separately.
+- Recheck local tap safety without repeated fetches.
+- Add regression coverage for schema 1, Retry with six pending steps, provenance, and bounded recovery.
+- Correct the bundle test for build 35 and block publication when embedded sources differ from the release source.
+- Update the README introduction, How it works diagram in PNG/SVG, installation guide, Quick Start, release notes, validation report, and local release guide.
+- Include the formula recipe in variant identity to prevent conflicts when the version rank is unchanged.
+- Reuse the winner of a local-build publication conflict only after verifying identical proven inputs and downloaded bytes; preserve legacy spool entries separately.
+- Run the application workflow fixture on macOS releases before Tahoe. Copy Ruby into the disposable Homebrew test prefix and verify the Cask payload without launching an unsigned synthetic app.
+- Support an existing notarytool profile on an authorized SSH host without transferring credentials; verify the archive checksum before submission.
+- Accept Apple's reserved ticket file only after validation, reject forged or linked tickets, and prevent stale tickets from surviving a local rebuild.
+- Verify downloaded release assets before updating the default `stable` branch and making v0.3.5 public/latest.
+- Publish all current documentation and release notes in English. Rebuild and notarize the documentation refresh so the signed source manifest, source archive, and release tag identify the same commit.
 
-## 0.3.4 — 8 octombrie 2026
+## 0.3.4 — October 8, 2026
 
-- repară Retry Failed pentru formule curente cu forma Homebrew acceptată
-  `brew install --formula --build-bottle --force`, fără combinația invalidă
-  `brew reinstall --build-bottle`;
-- mută atomic keg-ul curent într-un backup pe același volum și îl restaurează la
-  orice eșec; backup-ul este eliminat numai după validarea artifactului;
-- sare peste recompilare când receipt-ul este deja `built_as_bottle`;
-- atribuie Retry exact pachetului nested eșuat, evitând recompilarea inutilă a
-  părintelui;
-- repară argumentul Maintenance Console și propagă stdout/stderr plus exit code-ul real;
-- adaugă regresii pentru keg curent, rollback, nested dependency, 10 pași
-  pending și comenzile controlate ale consolei.
+- Fix Retry Failed for current installed formulae with the Homebrew-supported command `brew install --formula --build-bottle --force`, replacing the invalid `brew reinstall --build-bottle` combination.
+- Move the current keg atomically to a backup on the same volume and restore it on failure. Remove the backup only after artifact validation.
+- Skip recompilation when the receipt already records `built_as_bottle`.
+- Retry the exact failed nested package instead of unnecessarily rebuilding its parent.
+- Fix the Maintenance Console argument and propagate live stdout/stderr and the real exit code.
+- Add regressions for current kegs, rollback, nested dependencies, ten pending steps, and controlled console commands.
 
-## 0.3.3 — 7 octombrie 2026
+## 0.3.3 — October 7, 2026
 
-- Reconciliere backend-authoritative la cold launch, deschiderea meniului și la
-  fiecare 10 secunde. Un job fără erori/restanțe deblochează explicit Update &
-  Upgrade, Install și Sync, chiar dacă GUI cache-ul arată vechiul Stopped.
-- Repară ordinea grafului: dependențele runtime sunt aduse la zi înainte ca
-  formula dependentă să fie considerată current sau să fie construită/publicată.
-- Adaugă `Repair / Install Dependency…`, inclusiv pentru `openssl@3`, fără a
-  distruge coada; după reparare rulează `brew missing` și `brew linkage --test`.
-- Adaugă `Repair Pool State…`: resync UI sau anulare explicită a cozii, păstrând
-  instalațiile, bottle-urile, configurația, tokenul și spool-ul.
-- Adaugă consola de mentenanță permanent disponibilă: input explicit, output
-  stdout/stderr live, istoric în sesiune, Stop Command, exit code și shortcut-uri
-  doctor/outdated/missing/linkage.
-- Serializează toate comenzile care modifică Homebrew cu lock-ul jobului;
-  diagnosticele folosesc shared lock și nu se suprapun peste un writer.
-- Închide stdin pentru procesele lansate, nu execută texte din loguri, cere
-  confirmare pentru comenzi distructive și delegă autentificarea de administrator
-  dialogului nativ macOS fără colectarea parolei.
-- Păstrează protocolul server schema 1 și toate funcțiile 0.3.2; adaugă suita
-  `tests/test_v033.py` pentru stale UI, dependențe, lock și securitatea consolei.
+- Reconcile GUI state with the authoritative backend at cold launch, when opening the menu, and every ten seconds. A job with no failures or remaining steps unlocks Update & Upgrade, Install, and Sync even if the GUI cache still says Stopped.
+- Bring runtime dependencies up to date before considering the dependent formula current or building/publishing it.
+- Add `Repair / Install Dependency…`, including support for `openssl@3`, while preserving the queue; run `brew missing` and `brew linkage --test` after repair.
+- Add `Repair Pool State…` to refresh the UI or explicitly discard the pending queue while preserving installations, bottles, configuration, token, and spool.
+- Provide an always-available Maintenance Console with explicit command input, live stdout/stderr, session history, Stop Command, exit status, and doctor/outdated/missing/linkage shortcuts.
+- Serialize commands that modify Homebrew with the job lock. Read-only diagnostics use a shared lock and do not overlap a writer.
+- Close child-process stdin, never execute log text, require confirmation for destructive commands, and delegate administrator authentication to the native macOS dialog without collecting the password.
+- Preserve schema 1 and all 0.3.2 features; add `tests/test_v033.py` for stale UI, dependency ordering, locking, and console security.
 
-## 0.3.2 — 7 octombrie 2026
+## 0.3.2 — October 7, 2026
 
-- Adaugă ghidul complet `INSTALLATION.md` pentru server, HTTPS/VPN, storage,
-  token și configurarea/verificarea fiecărui Mac.
-- Creditează explicit StefanAlMare și colaborarea cu ChatGPT by OpenAI.
-- Înlocuiește licența permisivă MIT cu o licență source-available: release-ul
-  oficial nemodificat poate fi descărcat și utilizat gratuit, iar reutilizarea,
-  modificarea sau redistribuirea codului necesită acordul scris al StefanAlMare.
-- Iconițe template cu contrast nativ în menu bar; Healthy, Busy animat, Action
-  Required, Paused — Error și Paused/Stopped au simboluri diferite.
-- Coada se salvează atomic. Prima eroare oprește procesarea; Retry execută numai
-  pașii eșuați, Resume continuă restul, iar erorile rămân vizibile până la rezolvare.
-- Stop și Quit sunt disponibile în timpul lucrului. Oprire SIGINT, apoi SIGTERM
-  după 8 secunde, SIGKILL numai după încă 4 secunde; și copiii care schimbă sesiunea
-  sunt urmăriți. GUI are fallback separat dacă workerul nu răspunde.
-- Preflight înainte de update: remotes oficiale legacy, upstream/refspec lipsă și
-  launcher brew; fetch --prune + merge --ff-only, păstrând commit-urile locale,
-  mirror-urile private și URL-urile tap-urilor externe. Refuză dirty/detached/divergent.
-- Modul API nu clonează core/cask. Checkout-ul core se creează numai pentru bottling.
-- Suport pentru versiuni calendaristice și separarea stderr; deps acceptă doar
-  linii cu nume valide, eliminând mesajele Homebrew din argumentele comenzilor.
-- Retry revalidează și o dependență instalată al cărei test a eșuat.
-- Teste cu fixture repos, procese copil, pilot Homebrew Intel izolat și pilot GUI.
+- Add the complete `INSTALLATION.md` guide for the server, HTTPS/VPN, storage, token, and configuration/verification of every Mac.
+- Credit StefanAlMare and collaboration with ChatGPT by OpenAI explicitly.
+- Replace the permissive MIT license with a source-available license: official unmodified releases may be downloaded and used free of charge; source reuse, modification, or redistribution requires StefanAlMare's prior written permission.
+- Use template menu-bar icons with native contrast and distinct symbols for Healthy, animated Busy, Action Required, Paused — Error, and Paused/Stopped.
+- Save the queue atomically. Stop at the first error; Retry runs only failed steps, Resume continues the remaining steps, and errors remain visible until resolved.
+- Keep Stop and Quit available during work. Send SIGINT, then SIGTERM after eight seconds, and SIGKILL only after another four seconds. Track children that create separate sessions, with a separate GUI fallback if the worker does not respond.
+- Run preflight before updates: repair official legacy remotes, missing upstream/refspec settings, and the brew launcher using fetch --prune and merge --ff-only. Preserve local commits, private mirrors, and external tap URLs; reject dirty, detached, or divergent checkouts.
+- Avoid cloning core/cask in API mode. Create a core checkout only when bottling requires one.
+- Support calendar-style versions and separate stderr. Accept only valid formula-name lines from dependency output so Homebrew messages cannot become command arguments.
+- Revalidate an installed dependency on Retry when its test previously failed.
+- Add fixture repositories, child-process tests, an isolated Intel Homebrew pilot, and a GUI pilot.
 
-## 0.3.1 — 7 octombrie 2026
+## 0.3.1 — October 7, 2026
 
-- păstrează `root_url` pentru bottle-urile generate din tap-uri externe;
-- normalizează PATH-ul proceselor GUI pentru prefixul Intel Homebrew;
-- adaugă starea persistentă Action Required, notificare unică și Review Action;
-- păstrează operațiile normale complet automate cu `HOMEBREW_NO_ASK=1`;
-- separă vizual Healthy, Busy, Action Required și Error.
+- Preserve `root_url` for bottles generated from external taps.
+- Normalize the GUI process PATH for the Intel Homebrew prefix.
+- Add persistent Action Required state, a single notification, and Review Action.
+- Keep ordinary operations automatic with `HOMEBREW_NO_ASK=1`.
+- Distinguish Healthy, Busy, Action Required, and Error visually.
 
-## 0.3.0 — 7 octombrie 2026
+## 0.3.0 — October 7, 2026
 
-- Redenumește acțiunea principală în `Update & Upgrade`.
-- Adaugă `Install…` și comanda pool-aware `install`, cu Auto/Formula/Cask și refuzul numelor ambigue.
-- Adaugă Setup/Settings nativ: URL, token paste/file, CA, Test Connection și salvare atomică după autentificare/API validate.
-- Păstrează adaptoarele/config-ul existente și copiază tokenul într-un fișier privat 0600; testele de conexiune folosesc stare temporară.
-- Publică și reutilizează bottles oficiale, bottles locale testate și downloads Cask verificate. Cask-urile mutable au opțiune explicită upstream-only, fără publicare.
-- Păstrează patch-ul safe tap sync v0.2.1 și revalidează dirty/detached/divergent înainte de bottling, chiar după o sincronizare anterioară.
-- Păstrează Start at Login, Healthy/Connected, spool și loguri; nu introduce upgrade-uri automate.
-- Împiedică scrierea bytecode-ului Python în bundle-ul sigilat.
-- Distribuie app Intel x86_64 și DMG Developer ID, notarizate Apple și stapled.
-- Validează instalările Formula și Cask reale într-un Homebrew temporar, fără operații asupra pachetelor instalării curente.
+- Rename the main action to `Update & Upgrade`.
+- Add `Install…` and the pool-aware `install` command with Auto/Formula/Cask selection and rejection of ambiguous names.
+- Add native Setup/Settings for URL, pasted token or token file, CA, Test Connection, and atomic saving after successful authentication/API validation.
+- Preserve existing adapters/configuration and copy the token to a private 0600 file. Connection tests use temporary state.
+- Publish and reuse official bottles, tested local bottles, and verified Cask downloads. Mutable Casks have an explicit upstream-only option and are not published.
+- Preserve safe tap synchronization from v0.2.1 and revalidate dirty/detached/divergent state before bottling, even after an earlier synchronization.
+- Preserve Start at Login, Healthy/Connected, spool, and logs; do not introduce automatic upgrades.
+- Prevent Python bytecode writes inside the sealed bundle.
+- Distribute an Intel x86_64 app and Developer ID DMG with Apple notarization and attached tickets.
+- Validate real Formula and Cask installations in a disposable Homebrew prefix without modifying packages in the current installation.
 
-## 0.2.0 — 7 octombrie 2026
+## 0.2.0 — October 7, 2026
 
-- Adaugă aplicația nativă Intel macOS `Homebrew Pool.app`, cu status item și clientul v0.1 inclus.
-- Expune stările `Healthy/Connected`, `Offline/Spooling`, `Busy/Building or Syncing` și `Error`.
-- Adaugă comenzile explicite `Sync now`, `Upgrade via Pool`, `Open logs`, `Open config`, `Start at Login` și `Quit`.
-- Adaugă pornire la login prin LaunchAgent user-local, fără daemon privilegiat.
-- Adaugă installer și uninstaller user-local; dezinstalarea păstrează implicit config-ul, spool-ul și logurile.
-- Adaugă status JSON pentru agent, fără schimbarea protocolului sau a logicii backend v0.1.
-- Adaugă build Intel `.app`, arhivă ZIP și imagine DMG, cu semnare ad-hoc pentru distribuție privată.
+- Add the native Intel macOS `Homebrew Pool.app` with a status item and the v0.1 client embedded.
+- Expose Healthy/Connected, Offline/Spooling, Busy/Building or Syncing, and Error states.
+- Add explicit Sync now, Upgrade via Pool, Open logs, Open config, Start at Login, and Quit commands.
+- Start at login through a user-local LaunchAgent without a privileged daemon.
+- Add a user-local installer/uninstaller; uninstall preserves configuration, spool, and logs by default.
+- Add JSON agent status without changing the protocol or v0.1 backend logic.
+- Add an Intel `.app`, ZIP archive, and DMG image with ad-hoc signing for private distribution.
 
-Nu există actualizări Brew automate și nu există workflow-uri sau build-uri GitHub.
+There are no automatic Homebrew updates, GitHub workflows, or hosted builds.

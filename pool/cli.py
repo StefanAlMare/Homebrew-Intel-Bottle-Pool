@@ -15,7 +15,7 @@ from .jobs import Job
 from .processes import JobStopped, install_stop_handlers
 from .maintenance import run_maintenance
 
-VERSION = "0.3.4"
+VERSION = "0.3.5"
 
 
 def default_config():

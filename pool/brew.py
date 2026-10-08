@@ -138,13 +138,15 @@ class Brew:
 
     def sync_tap_for_build(self, info):
         tap = info.get("tap") or "homebrew/core"
+        if tap in self.synced_taps:
+            # Check checkout/API agreement again; never fetch the same tap twice in one run.
+            self.verify_tap_formula(info)
+            return
         if tap not in self.package_lines(self.run("tap"), taps=True):
             self.run("tap", "--force", tap, capture=False)
         repo = Path(self.run("--repository", tap))
         Preflight(self).sync(repo, tap)
         self.verify_tap_formula(info)
-        self.synced_taps.add(tap)
-        print("Bottle tap synchronized: " + tap, flush=True)
         self.synced_taps.add(tap)
         print("Bottle tap synchronized: " + tap, flush=True)
 
@@ -187,13 +189,54 @@ class Brew:
             self.check_options(dep)
             if not self.up_to_date(dep):
                 raise PoolError("Runtime dependency not current: " + name)
-            deps[dep["full_name"]] = {"version": self.pkg_version(dep), "source": self.source_hash(dep)}
+            deps[dep["full_name"]] = {"version": self.pkg_version(dep), "source": self.installed_source_hash(dep)}
         return {"formula_sha256": self.source_hash(info), "dependencies": deps,
+                "dependency_identity": "installed-keg-brew-sha256-v1",
                 "prefix": self.prefix, "cellar": self.cellar, "options": []}
 
     def source_hash(self, info):
         checksum = (info.get("ruby_source_checksum") or {}).get("sha256")
         return checksum or hashlib.sha256(self.run("cat", info["full_name"]).encode()).hexdigest()
+
+    def installed_source_hash(self, info):
+        """Hash the recipe embedded in the installed current keg, not today's API recipe.
+
+        A metadata-only Homebrew update must not invalidate a binary that was
+        built against unchanged installed dependencies. Missing/unsafe recipe
+        evidence fails closed rather than publishing an unverified bottle.
+        """
+        receipt = self._matching_install(info)
+        if not receipt:
+            raise PoolError("Installed dependency receipt missing: " + info["full_name"])
+        recipe = Path(self.cellar) / info["name"] / receipt["version"] / ".brew" / (info["name"] + ".rb")
+        if recipe.is_symlink() or not recipe.is_file():
+            raise PoolError("Installed dependency recipe missing or linked: " + str(recipe))
+        try:
+            recipe.resolve(strict=True).relative_to(Path(self.cellar).resolve(strict=True))
+        except (OSError, ValueError, RuntimeError) as error:
+            raise PoolError("Installed dependency recipe is outside Homebrew Cellar: " + str(recipe)) from error
+        return digest(recipe)
+
+    @staticmethod
+    def context_delta(previous, current):
+        """Short, actionable context mismatch without embedding an entire dependency graph."""
+        fields = ["formula_sha256", "dependency_identity", "prefix", "cellar", "options"]
+        differences = [key for key in fields if previous.get(key) != current.get(key)]
+        before = previous.get("dependencies", {})
+        after = current.get("dependencies", {})
+        for name in sorted(set(before) | set(after)):
+            if name not in before:
+                differences.append(name + ": added")
+            elif name not in after:
+                differences.append(name + ": removed")
+            elif before[name] != after[name]:
+                changed = [field for field in ("version", "source")
+                           if before[name].get(field) != after[name].get(field)]
+                differences.append(name + ": " + "/".join(changed or ["metadata"]))
+        shown = differences[:8]
+        if len(differences) > 8:
+            shown.append("and " + str(len(differences) - 8) + " more")
+        return ", ".join(shown) or "unspecified context difference"
 
     def manifest(self, info, kind="brew-local-bottle", tag=None, expected_sha=None):
         context = self.context(info)
@@ -311,7 +354,6 @@ class Brew:
         # Homebrew is about to build, but only by a clean fast-forward.
         self.sync_tap_for_build(info)
         info = self.info(name)
-        self.sync_tap_for_build(info)
 
         # On a miss, build dependencies also participate in the same pool protocol.
         build_deps = self.package_lines(self.run("deps", "--include-build", "--include-test", "--topological", "--full-name", name))
@@ -451,8 +493,11 @@ class Brew:
         # Revalidate after tap synchronization and dependency work, before either
         # replacing an installed keg or publishing anything derived from it.
         fresh = self.info(name)
-        if self.pkg_version(fresh) != manifest["version"] or self.context(fresh) != manifest["metadata"]["context"]:
-            raise PoolError("Formula/dependency context changed before build; retry: " + name)
+        fresh_context = self.context(fresh)
+        if self.pkg_version(fresh) != manifest["version"] or fresh_context != manifest["metadata"]["context"]:
+            raise PoolError("Formula/dependency context changed before build ("
+                            + self.context_delta(manifest["metadata"]["context"], fresh_context)
+                            + "); retry: " + name)
         info = fresh
         flags = ["--as-dependency"] if as_dependency else []
         current_retry = self.up_to_date(info) and name in self.force_targets
@@ -500,8 +545,11 @@ class Brew:
                 self.run("test", name, capture=False)
                 # Detect metadata/dependency changes during long builds.
                 after = self.info(name)
-                if self.pkg_version(after) != manifest["version"] or self.context(after) != manifest["metadata"]["context"]:
-                    raise PoolError("Formula/dependency context changed during build; artifact not published")
+                after_context = self.context(after)
+                if self.pkg_version(after) != manifest["version"] or after_context != manifest["metadata"]["context"]:
+                    raise PoolError("Formula/dependency context changed during build ("
+                                    + self.context_delta(manifest["metadata"]["context"], after_context)
+                                    + "); artifact not published")
                 queued = self.client.enqueue(manifest, output)
                 if lease and not lease.lost:
                     try:

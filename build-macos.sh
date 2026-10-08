@@ -48,7 +48,7 @@ if [ "$app_only" -eq 1 ]; then
   exit 0
 fi
 
-ditto -c -k --sequesterRsrc --keepParent "$app" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.4.zip"
+ditto -c -k --sequesterRsrc --keepParent "$app" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.5.zip"
 
 dmg_root="$build_dir/dmg"
 mkdir -p "$dmg_root"
@@ -56,10 +56,10 @@ ditto "$app" "$dmg_root/Homebrew Pool.app"
 ln -s /Applications "$dmg_root/Applications"
 cp "$project_dir/QUICKSTART.txt" "$dmg_root/Read Me.txt"
 cp "$project_dir/LICENSE" "$dmg_root/License.txt"
-hdiutil create -quiet -volname "Homebrew Pool 0.3.4" -srcfolder "$dmg_root" \
-  -ov -format UDZO "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.4.dmg"
+hdiutil create -quiet -volname "Homebrew Pool 0.3.5" -srcfolder "$dmg_root" \
+  -ov -format UDZO "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.5.dmg"
 if [ -n "${SIGNING_IDENTITY-}" ]; then
-  codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.4.dmg"
+  codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.5.dmg"
 fi
 echo "Built: $app"
-echo "Built: $dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.4.dmg"
+echo "Built: $dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.5.dmg"

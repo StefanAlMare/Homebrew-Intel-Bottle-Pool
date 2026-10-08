@@ -190,16 +190,62 @@ class Client:
                 manifest = validate(json.loads((directory / "manifest.json").read_text()))
             except FileNotFoundError:
                 return {"status": "already-synced"}
+            if manifest["kind"] in ("brew-local-bottle", "brew-upstream-bottle") and not self.current_brew_provenance(manifest):
+                # Do not relabel or retry old, incomplete provenance indefinitely.
+                # Preserve the original bytes and manifest for explicit review.
+                quarantine = self.spool / "quarantine"
+                quarantine.mkdir(exist_ok=True)
+                destination = quarantine / directory.name
+                if destination.exists():
+                    raise PoolError("Legacy spool quarantine destination already exists")
+                os.rename(directory, destination)
+                fsync_dir(quarantine)
+                fsync_dir(self.spool)
+                print("Legacy Homebrew bottle retained for review: " + str(destination), flush=True)
+                return {"status": "quarantined", "path": str(destination)}
             if lease:
-                result = self.upload(manifest, directory / "payload", lease)
+                result = self.publish_verified(manifest, directory / "payload", lease)
             else:
                 with Lease(self, manifest, wait_seconds=0) as acquired:
                     if not acquired.token:
                         return {"status": "busy"}
-                    result = self.upload(manifest, directory / "payload", acquired)
-            if result["status"] in ("published", "exists", "older"):
+                    result = self.publish_verified(manifest, directory / "payload", acquired)
+            if result["status"] in ("published", "exists", "older", "reused"):
                 shutil.rmtree(directory)
             return result
+
+    @staticmethod
+    def current_brew_provenance(manifest):
+        context = manifest.get("metadata", {}).get("context")
+        return isinstance(context, dict) and all(context.get(key) == value for key, value in (
+            ("dependency_identity", "installed-keg-brew-sha256-v1"),
+            ("dependency_graph", "declared-platform-v1"),
+            ("variant_identity", "formula-runtime-v1")))
+
+    def publish_verified(self, manifest, source, lease):
+        try:
+            return self.upload(manifest, source, lease)
+        except RemoteError as error:
+            # Independent local builds can have different archive bytes. Keep the
+            # authoritative winner, but only for the exact same proven inputs.
+            # Upstream/external checksums are authoritative and never substituted.
+            if (error.status != 409 or not str(error).startswith("Same version rank with different bytes/context")
+                    or manifest["kind"] != "brew-local-bottle"
+                    or not self.current_brew_provenance(manifest)):
+                raise
+            winner = self.lookup(manifest)
+            if not (winner and winner["version"] == manifest["version"]
+                    and winner["version_order"] == manifest["version_order"]
+                    and isinstance(manifest.get("metadata", {}).get("build_inputs"), dict)
+                    and winner.get("metadata", {}).get("build_inputs") == manifest["metadata"]["build_inputs"]
+                    and winner.get("metadata", {}).get("context") == manifest.get("metadata", {}).get("context")):
+                raise
+            # A lookup alone proves no blob integrity. Fetch with If-Match and
+            # SHA-256 before discarding any durable local entry. One attempt only.
+            with tempfile.TemporaryDirectory(prefix="verify-winner-", dir=str(self.state)) as temporary:
+                self.fetch(winner, Path(temporary) / "payload")
+            print("Pool already contains a verified bottle for the same build inputs: " + manifest["name"], flush=True)
+            return {"status": "reused", "manifest": winner}
 
     def sync(self):
         from .processes import check_stop

@@ -12,6 +12,18 @@
 - păstrează verificările tap-ului local fără fetch repetat;
 - adaugă regresii pentru schema 1, Retry cu șase pași pending, proveniență și recuperare limitată;
 - corectează testul bundle-ului pentru build 35 și închide publicarea la diferențe între surse și bundle.
+- actualizează introducerea README, diagrama How it works (PNG și SVG), instalarea,
+  Quick Start, notele, validarea și ghidul complet al publicării locale;
+- include rețeta formulei în variantă, evitând conflicte fără schimbare de rang;
+- verifică și reutilizează câștigătorul unui conflict de build local numai cu
+  aceleași intrări dovedite, fără suprascriere; păstrează spool-ul legacy separat;
+- corectează testul funcțional al aplicației pentru a rula și pe macOS anterior
+  Tahoe; testul Homebrew real copiază Ruby în prefixul temporar și verifică
+  identitatea payload-ului cask fără lansarea unei aplicații sintetice nesemnate;
+- automatizează folosirea profilului notarytool existent prin SSH autorizat,
+  fără transferul credențialelor și cu verificarea arhivei înainte de trimitere;
+- publicarea finală actualizează branch-ul implicit stable și release-ul v0.3.5;
+  verifică artefactele descărcate înainte de marcarea release-ului ca public/latest.
 
 ## 0.3.4 — 8 octombrie 2026
 

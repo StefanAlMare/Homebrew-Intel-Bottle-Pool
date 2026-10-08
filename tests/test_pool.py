@@ -390,10 +390,10 @@ class BrewTests(Fixture):
         b = FakeBrew(self.clients[1])
         b.records["demo"]["_fixture_recipe"] = "changed target source"
         b.records["demo"]["ruby_source_checksum"]["sha256"] = hashlib.sha256(b"changed target source").hexdigest()
-        # Same rank, different source: build may succeed, publication must be reviewed.
-        with self.assertRaises(RemoteError):
-            b.ensure("demo")
+        # Same rank, different target source: independent provenance variant.
+        b.ensure("demo")
         self.assertEqual(FakeBrew.builds, 2)
+        self.assertEqual(len(list(self.store.objects.glob("*/manifest.json"))), 2)
         self.assertFalse(any(x[0] == "install" and x[-1].endswith(".tar.gz") for x in b.calls))
 
     def test_offline_build_then_other_mac_consumes(self):

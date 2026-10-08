@@ -5,7 +5,8 @@ Requirements
   Apple Command Line Tools are required for source builds.
 
 Install
-  1. Verify the downloaded files with SHA256SUMS.txt.
+  1. Use final v0.3.5 release assets. Download every file listed in
+     SHA256SUMS.txt to run the complete checksum check.
   2. Open the DMG and drag Homebrew Pool.app to Applications.
   3. Launch it from Applications. Setup opens on a new Mac.
 
@@ -38,6 +39,20 @@ At an error, Review Errors shows the cause. Retry Failed retries only failures;
 Resume continues remaining work. Resolve/Skip explicitly acknowledges a failure,
 and Cancel Saved Queue abandons the remaining queue. Stop preserves resumable state.
 
+Upgrade an existing client
+  Quit the app before replacing it with the final 0.3.5 build. Keep your existing
+  config, token, spool, and job.json. No schema-1 server migration is required.
+  Installation does not automatically run a paused job. Retry Failed handles
+  failed steps; Resume handles the saved remainder.
+
+New in 0.3.5
+  Plan from declared platform dependencies, not the old keg's runtime graph.
+  Identify dependencies from installed recipe hashes. Pin local recipes during
+  source builds and avoid repeated tap fetches during that build.
+  Recover a changed context at most once per package per execution. Reuse proven
+  unchanged builds; safely rebuild when inputs change. Missing provenance or
+  repeated drift stops publication. Legacy kegs without proof may need a rebuild.
+
 Recovery example
   If coreutils reports "Runtime dependency not current: openssl@3", choose
   Repair / Install Dependency…, enter openssl@3, wait for exit code 0, then use
@@ -64,10 +79,18 @@ Private server
   HTTP plus the token directly to the Internet.
 
 Verify
-  shasum -a 256 -c SHA256SUMS.txt
+  With every listed release asset present: shasum -a 256 -c SHA256SUMS.txt
+  For a DMG-only download, calculate its SHA-256 and compare the full value with
+  its entry in SHA256SUMS.txt.
 
 Read README.md for architecture/security and VALIDATION.md for tested behavior
 and limitations. INSTALLATION.md contains the complete server and per-Mac setup.
 
 Created by StefanAlMare and developed together with ChatGPT by OpenAI.
 This project is independent and is not affiliated with Homebrew.
+
+0.3.5 publication recovery:
+  Target recipe hashes separate changed sources at the same version rank.
+  Local duplicate builds reuse only a verified winner with identical inputs.
+  Legacy Homebrew uploads are preserved in state_dir/spool/quarantine for review.
+  Official checksum mismatches still stop publication.

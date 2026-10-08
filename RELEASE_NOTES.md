@@ -35,10 +35,30 @@ rezultatul înainte de enqueue/publicare.
 Dovezile locale `build-proofs` păstrează contextul runtime, intrările build/test,
 hash-ul rețetei instalate și identitatea keg-ului imediat după compilare. Copia
 `.brew` este verificată prin transformarea exactă folosită de Homebrew pentru
-eliminarea blocului bottle, după verificarea checksum-ului sursei complete. Retry sare peste recompilare numai când dovada, rețeta
+eliminarea blocului bottle, după verificarea checksum-ului sursei complete.
+Retry sare peste recompilare numai când dovada, rețeta
 instalată și toate intrările corespund planului curent. Un keg legacy fără această
 dovadă poate necesita un rebuild verificat; nu se pretinde că o compilare veche
 cu proveniență incompletă este sigură. Rollback-ul 0.3.4 este păstrat.
+
+## Conflicte de publicare și sincronizare
+
+La pasul `node`, jurnalul și spool-ul local identifică `googletest 1.18.0` drept
+pachetul eșuat. Două intrări locale conțin același SHA-256, rang și context.
+Manifestul serverului nu a fost citit în această investigație, deci nu se afirmă
+dacă diferența de pe server era în bytes sau context. Defectul general identificat:
+rețeta formulei participa la context, dar nu la cheia variantei. O rețetă schimbată
+fără un nou rang putea ocupa aceeași cheie și provoca refuzuri repetate.
+
+Varianta include acum și SHA-256 al formulei, marcat `formula-runtime-v1`.
+La un conflict între două build-uri locale cu același rang, clientul poate păstra
+bottle-ul publicat numai dacă versiunea, contextul runtime și intrările build/test
+sunt identice și descărcarea verifică If-Match, dimensiunea și SHA-256. Este o
+singură încercare; serverul nu este suprascris. Un context schimbat, o dovadă
+lipsă sau un checksum oficial diferit continuă să oprească publicarea.
+Intrările Homebrew legacy din spool sunt mutate automat, fără schimbarea
+manifestului sau payload-ului, în `spool/quarantine` pentru analiză. Nu sunt
+reîncercate, relabelate sau șterse; celelalte intrări pot continua sincronizarea.
 
 ## Compatibilitate
 
@@ -50,11 +70,35 @@ construcție a unei variante noi poate fi necesară; clienții vechi își păst
 propriile variante. Configurația, tokenul și coada existentă sunt păstrate.
 Retry execută numai pașii failed; cei pending sunt executați prin Resume.
 
+## Aplicație, teste și documentație
+
+- versiune 0.3.5 / build 35 în client, bundle, installer și scripturile de pachet;
+- sunt corectate regresiile commitului inițial: verificările de siguranță ale
+  tap-urilor cached, fixture-ul fără rețetă instalată și testul bundle-ului care
+  mai aștepta build 34;
+- 157 de teste trecute, fără skip; regresii pentru proveniență, graf, publicare
+  concurentă, păstrarea spool-ului legacy, transportul notarizării și oprirea publicării înainte de verificări;
+  rezultatele suitei complete sunt raportate în VALIDATION.md;
+- test funcțional al aplicației cu Retry/Resume/Stop și test Homebrew real
+  într-un prefix temporar: build/bottle/pool/pour/test, plus cask reutilizat cu
+  upstream ascuns și payload verificat prin SHA-256;
+- SourceManifest.json leagă bundle-ul semnat de commit și de inputurile reale;
+  sursele din app, source ZIP și tag trebuie să corespundă;
+- introducere README refăcută, diagramă How it works nouă în PNG și SVG, plus
+  actualizări pentru instalare, upgrade, Retry/Resume, Quick Start și Changelog;
+- RELEASING.md descrie ordinea locală build → teste → semnare → notarizare →
+  stapling → verificări containere/hash-uri → publicare finală;
+- notarizarea poate folosi profilul existent de pe un Mac autorizat prin SSH,
+  cu verificarea hostului și a hash-ului arhivei; credențialele rămân pe acel Mac;
+- branch-ul implicit stable primește numai commitul final; v0.3.5 devine public
+  și latest numai după verificarea artefactelor descărcate din draft.
+
 ## Distribuție
 
 Build-ul se produce local pe Intel macOS. Release-ul final necesită Developer ID
 Application, Team YWVVK7QZ6X, notarizare Accepted pentru app și DMG, stapling,
 Gatekeeper și verificarea conținutului ZIP/DMG față de sursele commitului.
-SHA256SUMS.txt acoperă artefactele și documentele distribuite. GitHub este folosit
+SHA256SUMS.txt acoperă artefactele, documentele distribuite, diagrama și dovezile
+notarizării. GitHub este folosit
 pentru distribuție; nu se folosesc GitHub Actions sau compilări găzduite.
 Consultați VALIDATION.md pentru verificările efectiv finalizate și limitări.

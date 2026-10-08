@@ -114,7 +114,14 @@ class InstalledKegProvenanceTests(Fixture):
         payload.write_bytes(b"legacy bottle")
         from pool.common import digest
         old.update(sha256=digest(payload), size=payload.stat().st_size)
-        self.publish(old, payload)
+        # Model an artifact already published by the old client. The new client
+        # intentionally quarantines incomplete legacy spool entries instead.
+        import shutil
+        lease = self.store.acquire(key_for(old), "legacy-fixture")
+        staged = self.store.staging / "legacy-payload"
+        shutil.copyfile(payload, staged)
+        self.store.commit(old, staged, lease["token"])
+        self.store.release(key_for(old), lease["token"])
         self.assertEqual(current["schema"], 1)
         self.assertNotEqual(key_for(old), key_for(current))
         self.assertFalse(self.mac.consume_local(current))

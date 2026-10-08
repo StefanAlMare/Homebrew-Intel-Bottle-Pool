@@ -238,6 +238,7 @@ class Brew:
         return {"formula_sha256": self.source_hash(info), "dependencies": deps,
                 "dependency_identity": "installed-keg-brew-sha256-v1",
                 "dependency_graph": "declared-platform-v1",
+                "variant_identity": "formula-runtime-v1",
                 "prefix": self.prefix, "cellar": self.cellar, "options": []}
 
     def source_hash(self, info):
@@ -314,6 +315,8 @@ class Brew:
         context = self.context(info)
         variant = hashlib.sha256(canonical({"prefix": self.prefix, "cellar": self.cellar,
                                            "cpu": "homebrew-baseline", "options": [],
+                                           "formula_sha256": context["formula_sha256"],
+                                           "variant_identity": context["variant_identity"],
                                            "dependency_identity": context["dependency_identity"],
                                            "dependency_graph": context["dependency_graph"],
                                            "runtime_abi": context["dependencies"]})).hexdigest()
@@ -683,6 +686,7 @@ class Brew:
                     raise PoolError("Undeclared installed runtime dependencies; artifact not published, review recipe: "
                                     + ", ".join(sorted(unexpected)))
                 self.run("linkage", "--test", name, capture=False)
+                manifest["metadata"]["build_inputs"] = build_inputs
                 queued = self.client.enqueue(manifest, output)
                 if lease and not lease.lost:
                     try:

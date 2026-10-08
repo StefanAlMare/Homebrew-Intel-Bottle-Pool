@@ -11,7 +11,7 @@ codesign --verify --deep --strict "$app"
 mkdir -p "$project_dir/build"
 stage=$(mktemp -d "$project_dir/build/notarize-XXXXXX")
 ditto -c -k --sequesterRsrc --keepParent "$app" "$stage/submit.zip"
-xcrun notarytool submit "$stage/submit.zip" --keychain-profile "$NOTARY_PROFILE" --wait --output-format json > "$stage/app-notarization.json"
+python3 "$project_dir/notary_transport.py" submit "$stage/submit.zip" "$stage/app-notarization.json"
 python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); print(r); sys.exit(0 if r.get("status")=="Accepted" else 1)' "$stage/app-notarization.json"
 xcrun stapler staple "$app"
 xcrun stapler validate "$app"
@@ -23,7 +23,7 @@ cp "$project_dir/LICENSE" "$stage/dmg/License.txt"
 dmg="$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.5.dmg"
 hdiutil create -quiet -volname "Homebrew Pool 0.3.5" -srcfolder "$stage/dmg" -ov -format UDZO "$dmg"
 codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$dmg"
-xcrun notarytool submit "$dmg" --keychain-profile "$NOTARY_PROFILE" --wait --output-format json > "$stage/dmg-notarization.json"
+python3 "$project_dir/notary_transport.py" submit "$dmg" "$stage/dmg-notarization.json"
 python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); print(r); sys.exit(0 if r.get("status")=="Accepted" else 1)' "$stage/dmg-notarization.json"
 xcrun stapler staple "$dmg"
 xcrun stapler validate "$dmg"
@@ -34,26 +34,8 @@ cp "$stage/app-notarization.json" "$dist_dir/app-notarization.json"
 cp "$stage/dmg-notarization.json" "$dist_dir/dmg-notarization.json"
 app_id=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$stage/app-notarization.json")
 dmg_id=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$stage/dmg-notarization.json")
-xcrun notarytool log "$app_id" --keychain-profile "$NOTARY_PROFILE" "$dist_dir/app-notarization-log.json"
-xcrun notarytool log "$dmg_id" --keychain-profile "$NOTARY_PROFILE" "$dist_dir/dmg-notarization-log.json"
-source_stage="$stage/Homebrew-Intel-Bottle-Pool-v0.3.5"
-mkdir -p "$source_stage"
-git -C "$project_dir" archive --format=tar HEAD | (cd "$source_stage" && tar -xf -)
-ditto -c -k --sequesterRsrc --keepParent "$source_stage" \
-  "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.5-source.zip"
-cp "$project_dir/VALIDATION.md" "$dist_dir/VALIDATION.md"
-cp "$project_dir/QUICKSTART.txt" "$dist_dir/QUICKSTART.txt"
-if [ -f "$project_dir/HANDOVER.md" ]; then
-  cp "$project_dir/HANDOVER.md" "$dist_dir/HANDOVER.md"
-fi
-cp "$project_dir/RELEASE_NOTES.md" "$dist_dir/RELEASE_NOTES.md"
-(cd "$dist_dir" && shasum -a 256 \
-  Homebrew-Intel-Bottle-Pool-v0.3.5.dmg \
-  Homebrew-Intel-Bottle-Pool-v0.3.5.zip \
-  Homebrew-Intel-Bottle-Pool-v0.3.5-source.zip \
-  VALIDATION.md QUICKSTART.txt RELEASE_NOTES.md \
-  app-notarization.json dmg-notarization.json \
-  app-notarization-log.json dmg-notarization-log.json > SHA256SUMS.txt)
-(cd "$dist_dir" && shasum -a 256 -c SHA256SUMS.txt)
+python3 "$project_dir/notary_transport.py" log "$app_id" "$dist_dir/app-notarization-log.json"
+python3 "$project_dir/notary_transport.py" log "$dmg_id" "$dist_dir/dmg-notarization-log.json"
+python3 "$project_dir/package_release.py"
 python3 "$project_dir/verify_distribution.py"
-echo "App and DMG accepted, stapled and assessed; containers and sources verified."
+echo "App and DMG accepted, stapled and assessed; containers, documentation and sources verified."

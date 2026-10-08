@@ -43,7 +43,8 @@ def main():
         portable.parent.mkdir(parents=True, exist_ok=True)
         if portable.exists():
             raise RuntimeError("Unexpected tracked portable-ruby directory")
-        portable.symlink_to(ruby.parent.parent.parent, target_is_directory=True)
+        # Bootstrap updates must remain inside the disposable prefix too.
+        shutil.copytree(ruby.parent.parent.parent, portable, symlinks=True)
         (prefix / "bin").mkdir()
         executable = prefix / "bin" / "brew"
         executable.symlink_to(clone / "bin" / "brew")
@@ -131,6 +132,7 @@ end
             macos = fixture_app / "Contents/MacOS"
             macos.mkdir(parents=True)
             shutil.copy2(prefix / "bin/pool-smoke", macos / "pool-smoke")
+            fixture_binary_sha = hashlib.sha256((macos / "pool-smoke").read_bytes()).hexdigest()
             (fixture_app / "Contents/Info.plist").write_bytes(plistlib.dumps({
                 "CFBundleIdentifier": "com.stefanalmare.pool-smoke-fixture",
                 "CFBundleExecutable": "pool-smoke", "CFBundleName": "Pool Smoke",
@@ -171,7 +173,10 @@ end
             cask_archive.rename(root / "upstream-hidden.zip")
             d = Brew(client("cask-b"))
             d.install(cask_name, kind="cask", update=False)
-            assert subprocess.check_output([str(installed_app)], text=True).strip() == "pool-smoke-ok"
+            # Verify exact payload identity. The program was already executed as
+            # a formula above; this unsigned synthetic app is not notarized and
+            # must not require disabling Gatekeeper to test cask transport.
+            assert hashlib.sha256(installed_app.read_bytes()).hexdigest() == fixture_binary_sha
             assert len(list(store.objects.glob("*/manifest.json"))) == 2
             print("REAL INTEL CASK DOWNLOAD → POOL → INSTALL WITHOUT UPSTREAM PASSED")
         finally:

@@ -1,150 +1,111 @@
 # Homebrew Intel Bottle Pool
 
-A private, shared bottle pool for people who still use Intel Macs.
+**Version 0.3.5 · Intel macOS client · private bottle pool**
+
+> **Build once. Reuse safely across compatible Intel Macs.**
+
+Homebrew Intel Bottle Pool helps your Intel Macs share software they have already
+built or downloaded. When Homebrew has no compatible bottle, one Mac can compile
+and validate the formula, save it to a private pool, and let matching Macs reuse
+it. The pool reduces repeated builds, CPU use, bandwidth, and waiting time.
+
+Each Mac can both build and consume bottles. The menu-bar app coordinates normal
+Homebrew commands, keeps a persistent work queue, and stores validated results
+locally when the server is offline. A NAS or private server stores the artifacts;
+compilation stays on the Macs.
 
 Created and maintained by **StefanAlMare**, developed together with
 **ChatGPT by OpenAI** for design, implementation, testing, documentation, and
-release engineering.
-
-> **Build once. Store once. Reuse across compatible Intel Macs.**
-
-Homebrew no longer produces bottles for current Intel macOS configurations. As a
-result, newer formulae increasingly need to be built locally from source. That is
-an inconvenience on one Mac; across a fleet of Intel Macs it wastes CPU time,
-energy, bandwidth, and often many minutes or hours by compiling the same software
-again on every machine.
-
-Homebrew Intel Bottle Pool lets one compatible Intel Mac build or obtain an
-artifact once, validate it, and publish it to a private central pool. Other
-compatible Macs can reuse that artifact instead of repeating the work.
-
-This project does **not** replace Homebrew and is **not affiliated with, endorsed
-by, or maintained by Homebrew**. It coordinates the normal Homebrew CLI and adds
-a private reuse layer for trusted machines.
+release engineering. This project is independent from Homebrew and is not
+affiliated with or endorsed by Homebrew.
 
 ## How it works
 
-```text
-┌───────────────┐     authenticated HTTPS/VPN     ┌──────────────────────┐
-│ Intel Mac A   │ ─── lookup / publish ─────────▶ │ Private bottle pool  │
-│ build + test  │                                  │ NAS / server + disk  │
-└───────────────┘                                  └──────────┬───────────┘
-                                                              │ lookup
-┌───────────────┐                                             │
-│ Intel Mac B   │ ◀───────────────────────────────────────────┘
-│ verify + use  │
-└───────────────┘
-```
+![Homebrew Intel Bottle Pool 0.3.5: shared architecture, five client steps, and bounded recovery](docs/assets/how-it-works.png)
 
-There are no permanent builder and consumer roles. Every configured Mac can look
-up compatible artifacts, publish newly validated artifacts, keep failed uploads
-in a local spool, and retry them later. The central host stores and serves files;
-Homebrew compilation stays on the Macs.
+[Editable diagram](docs/assets/how-it-works.svg)
 
-The pool server can run on a NAS, TrueNAS system, Linux server, home server, or
-another always-on host with persistent storage and reliable connectivity. The
-backend uses Python's standard library and requires no third-party Python package.
+1. **Plan consistently.** Read the dependency graph declared for the current
+   macOS platform. Identify dependencies from recipes in their installed kegs.
+   Before a source build, synchronize clean taps and pin the local recipe state.
+2. **Look for a compatible bottle.** Check the pool and verify its identity and
+   checksum. If there is no match, use a compatible official bottle when available.
+3. **Build only when needed.** Coordinate with other Macs through a lease, build
+   from the pinned local recipes, and save evidence of the build inputs.
+4. **Validate before sharing.** Check the generated bottle, run the formula test,
+   compare runtime/build/test inputs, and verify runtime dependencies and linkage.
+5. **Keep the result and share it.** Save validated artifacts to the durable local
+   spool and upload when the pool is reachable. Other matching Macs can reuse them.
 
-## Release 0.3.5
+Compatibility includes the macOS context, Homebrew prefix and Cellar, formula
+source, options, and installed dependency identity. Every client follows the same
+protocol; the private server authenticates requests, coordinates leases, checks
+hashes, and stores or serves files. It uses Python's standard library.
 
-Dependency identity uses SHA-256 of the recipe in the installed current keg's
-`.brew` directory, rather than mutable API metadata. An API-only dependency
-recipe update no longer invalidates an unchanged installed dependency during a
-long build. Missing, unreadable, or linked recipe evidence stops publication.
-Dependency planning explicitly uses the platform's declared recipe graph, avoiding
-Homebrew's switch from old-keg runtime dependencies to new-keg runtime dependencies.
-Source builds use synchronized local recipes with API installation disabled.
-A context race refreshes the plan and lease at most once per package. A genuine
-change during compilation rejects the first artifact and permits one safe rebuild;
-repeated drift stops with a concise diagnostic. Installed runtime dependencies and
-linkage are checked separately before publication. Durable build proofs permit
-reuse only when runtime/build/test inputs and the installed target recipe match.
-Legacy bottle-ready kegs without this evidence can require one verified rebuild.
+## What changed in 0.3.5
 
-Schema 1, configuration, tokens, spool, and `job.json` remain compatible. The new
-dependency identity has a separate variant namespace, including formulas with
-no dependencies. Older bottles remain available to older clients; 0.3.5 does
-not relabel or consume legacy local bottles. A first new-variant build may be
-needed. Retry handles only failed steps; Resume handles the preserved remainder.
-Tap fetches occur once per run, with local safety and formula checks repeated.
+| Problem | Behavior in 0.3.5 |
+| --- | --- |
+| Dependency API metadata changes while the installed keg stays unchanged | Dependency identity uses the installed `.brew` recipe hash and version, so an API-only change leaves the variant stable. |
+| `brew deps` switches from the old keg's runtime graph to the new keg's graph during an upgrade | Planning explicitly selects the platform's declared recipe graph. Runtime dependencies are checked separately after the build. |
+| API and local recipes are mixed during a source build | Installation uses synchronized local recipes with API installation disabled; tap state is checked again before publication. |
+| Tap synchronization repeats during a long operation | Local safety checks reuse the synchronized snapshot without another client fetch; the snapshot is refreshed after the explicit `brew update` step. |
+| Build inputs genuinely change | Reject the first artifact, refresh the plan and lease once, repair necessary dependencies, and perform a safe rebuild. Repeated drift stops publication. |
+| Retry unnecessarily compiles a completed build again | Reuse it only when its recorded runtime/build/test inputs, installed recipe, and exact keg identity still match. |
+| Provenance is missing, linked, unreadable, or inconsistent | Stop with a useful diagnostic. An unverified bottle is not published. |
+| The target recipe changes without a version/revision bump | Its source hash is part of the variant, so the changed recipe cannot collide with the previous artifact. |
+| Two local builds with identical proven inputs produce different archive bytes | Keep the published winner only after verifying its exact runtime/build/test context and downloading it with SHA-256 validation. |
+| Legacy queued bottles repeatedly conflict | Preserve them unchanged in `spool/quarantine` for review, without upload or relabeling. |
+| A legacy bottle-ready keg has no build evidence | A verified rebuild may be required; old evidence is never assumed. |
 
-## Release 0.3.4
+The `gobject-introspection`, `harfbuzz → brotli`, and `node → googletest` failures informed these general
+fixes. The implementation applies to formulae throughout the dependency graph.
+Homebrew's removal of the `bottle` stanza when saving `.brew` recipes is accounted
+for explicitly, preserving the other source bytes exactly.
 
-Release 0.3.4 is a local hotfix for safe retry and Maintenance Console command
-execution. A current formula that must be rebuilt for bottling uses Homebrew's
-supported `install --build-bottle --force` path. The previous keg is atomically
-staged and restored on failure, and an already bottle-ready keg is not compiled
-again. Nested failures force only the package that actually failed. Maintenance
-Console now executes its positional command and returns the real child exit status.
+Pool protocol, spool, and `job.json` remain **schema 1**. The new identity has a
+separate variant namespace, including formulae without dependencies. Existing
+configurations, tokens, queued steps, and legacy pool artifacts are preserved.
+Older clients keep their own variants; a first build of a new variant may be needed.
+Legacy queued Homebrew artifacts are retained in `spool/quarantine`; the active
+spool can continue safely without deleting those originals.
 
-The schema-1 pool protocol, server configuration, tokens and spool format are
-unchanged. Updates and maintenance commands remain user-initiated.
+See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the complete 0.3.5 changes,
+[CHANGELOG.md](CHANGELOG.md) for earlier versions, and [VALIDATION.md](VALIDATION.md)
+for completed checks and the actual release status.
 
-## Release 0.3.3
+## App actions and recovery
 
-Release 0.3.3 is recovery-focused. At launch, whenever the menu opens, and every
-10 seconds, the app reconciles its UI cache with the real schema-1 backend job.
-An `idle`, `resolved`, or terminal job with zero failures and zero remaining
-steps becomes **Healthy** and immediately unlocks normal actions. A stale
-`pending-run.json`, a resolved `job.json`, a cold launch, or a reboot can no
-longer leave the menu stuck on Paused/Stopped.
+- **Setup / Settings…**: configure the private server URL, token or token file,
+  optional CA certificate, and test the connection before saving.
+- **Update & Upgrade** and **Install…**: run the coordinated Homebrew workflow.
+- **Sync now**: upload queued validated artifacts when connectivity returns.
+- **Retry Failed**: execute failed steps only; **Resume**: continue saved remaining
+  steps. A successful Retry leaves the remaining queue paused for Resume.
+- **Stop**: preserve resumable state; **Review Errors**: inspect the failure.
+- **Repair / Install Dependency…**: repair a dependency without replacing a saved
+  queue, then check missing dependencies and linkage.
+- **Repair Pool State…**: reconcile stale UI or explicitly cancel saved work.
+- **Maintenance Console…**: run an explicit command with live output and its real
+  exit status. Destructive commands require confirmation; macOS handles `sudo`.
+- **Start at Login**: enable the status agent if desired. Upgrade is user-initiated.
 
-The menu-bar application provides:
+A technical failure stops before the next package. Recovery is bounded to one
+replan per package per execution. Unknown trust decisions, unsafe taps, missing
+provenance, and repeated changes remain visible for review. The client preserves
+the queue and validated artifacts. It does not infer maintenance commands from logs.
 
-- first-run **Setup** with Server URL, pasted Token or Token File, optional CA,
-  and **Test Connection**;
-- **Update & Upgrade** for the coordinated Homebrew workflow;
-- **Install…** with Auto, Formula, and Cask selection;
-- **Sync now** for queued offline results;
-- **Repair / Install Dependency…** while a job is paused, stopped, needs action,
-  or is otherwise idle; it preserves the queue, repairs through the pool-aware
-  formula flow, and runs `brew missing` plus `brew linkage --test`;
-- **Repair Pool State…** to reconcile the GUI or explicitly discard pending
-  work without deleting installed formulae, completed bottles, configuration,
-  token, or spool;
-- an always-available **Maintenance Console…** with explicit command input,
-  live stdout/stderr, in-session command history, Stop Command, exit code, and
-  shortcuts for `brew doctor`, `brew outdated`, `brew missing`, and
-  `brew linkage --test`;
-- **Settings…** for later configuration changes;
-- user-controlled **Start at Login**;
-- distinct **Healthy**, **Busy**, **Action Required**, and **Paused — Error**
-  states, plus a stopped/paused state when a queue is preserved.
-
-At the first technical error, the queue pauses before the next package. The app
-can review errors, retry only failed work, resume remaining work, explicitly skip
-failed work, or cancel the saved queue. While work is running, Stop is available
-and Quit offers Stop & Quit. Decisions that cannot safely be automated appear as
-Action Required.
-
-The preflight step checks the Brew repository and installed taps. It repairs only
-recognized official legacy URLs and unambiguous missing upstream configuration,
-then uses fetch/prune and fast-forward-only updates. Dirty, detached, ahead, or
-divergent repositories require review. Custom remotes and third-party tap URLs
-are preserved.
-
-Before a formula is accepted as current or built/published, its topological
-runtime dependencies are now installed or updated first. This specifically
-prevents a dependent build such as `coreutils` from reaching publication with an
-outdated dependency such as `openssl@3`. Retry revalidates formula and dependency
-context before publication.
-
-Maintenance commands are never inferred from logs and never run automatically.
-They receive closed stdin, secrets are not placed in command arguments by the
-app, and modifying commands share the same exclusive Homebrew lock as normal
-jobs. Read-only diagnostics use a shared lock and cannot overlap a writer.
-Potentially destructive commands require confirmation. A leading `sudo` is
-removed and routed to the native macOS authorization dialog; the application
-does not read or store the password. The console is for Homebrew and pool
-recovery, not for modifying the signed/notarized application bundle; code fixes
-arrive only through a later signed release.
+Preflight preserves dirty, detached, ahead, or divergent checkouts and arbitrary
+third-party remotes. Only recognized official legacy URLs and unambiguous missing
+upstream configuration are repaired automatically. Compiler tuning and custom
+formula options need separately reviewed variants.
 
 ## Compatibility
 
 The application release is for **Intel x86_64 Macs** and has a macOS 12 deployment
 target. The backend recognizes Big Sur, Monterey, Ventura, Sonoma, Sequoia, and
-Tahoe contexts; the GUI requires Monterey or newer. The final release was tested
-on one Intel Mac, not on every macOS version.
+Tahoe contexts; the GUI requires Monterey or newer. Validation has been performed
+on one Intel Mac; see VALIDATION.md for the tested scope and release status.
 
 Each client needs:
 
@@ -161,9 +122,16 @@ promise reuse across different prefixes or platform variants.
 
 ## Install the macOS app
 
-Download the DMG from the GitHub release, verify its checksum, open it, drag
-`Homebrew Pool.app` to Applications, and launch it from Applications. The signed
-release is notarized and stapled. Setup opens automatically on an unconfigured Mac.
+Use the final assets from the [v0.3.5 release](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.5)
+once it is published. Verify the checksums, open the DMG, drag `Homebrew Pool.app`
+to Applications, and launch it there. Final publication requires Developer ID
+signing, notarization, stapling, and container verification. A local development
+bundle or branch alone is not a completed release.
+
+Setup opens automatically on an unconfigured Mac. For an existing installation,
+quit the app before replacing it and keep your existing configuration, token,
+spool, and saved queue. No schema-1 server migration is needed. Review the saved
+error before using Retry; Resume handles the remaining steps.
 
 Enter these public example values only as a guide; replace them locally and never
 commit the real values:
@@ -276,8 +244,10 @@ Verify downloaded release assets:
 shasum -a 256 -c SHA256SUMS.txt
 ```
 
-The checksum file in the release covers the public DMG, app ZIP, source ZIP,
-QUICKSTART, RELEASE_NOTES, and VALIDATION assets.
+Download all files listed in the checksum manifest into the same directory before
+running the complete check. The manifest covers the DMG, app ZIP, source ZIP,
+release documentation, and notarization evidence. See INSTALLATION.md if you
+only downloaded the DMG.
 
 ## Local development
 
@@ -295,6 +265,12 @@ and logs are intentionally excluded from version control and source archives.
 There are no GitHub Actions or hosted builds. This keeps GitHub resource use low
 and ensures Homebrew compilation happens only where it is useful: on the Intel
 Macs participating in the private pool.
+
+Release preparation happens entirely on the local Intel Mac. Only verified final
+sources and artifacts are uploaded. Publication also updates the default `stable`
+branch, including this introduction and diagram, and marks v0.3.5 as the latest
+release after its downloaded assets pass verification. `main` is never used.
+See [RELEASING.md](RELEASING.md) for the ordered release gates.
 
 See [QUICKSTART.txt](QUICKSTART.txt), [VALIDATION.md](VALIDATION.md),
 [RELEASE_NOTES.md](RELEASE_NOTES.md), [INSTALLATION.md](INSTALLATION.md), [CHANGELOG.md](CHANGELOG.md), and

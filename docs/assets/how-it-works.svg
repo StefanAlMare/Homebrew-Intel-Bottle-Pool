@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920" role="img" aria-labelledby="title desc">
+<title id="title">Homebrew Intel Bottle Pool — How it works in 0.3.5</title>
+<desc id="desc">Compatible Intel Macs share a private bottle pool. Each client plans with declared dependencies and pinned recipes, checks for compatible bottles, builds only on a miss, validates the result, and stores it durably before upload. Context recovery is limited to one replan; only unchanged proven builds are reused without recompilation.</desc>
+<defs>
+ <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#1b8379"/></marker>
+ <style>
+ text{font-family:Arial,Helvetica,sans-serif;fill:#173331}
+ .title{font-size:36px;font-weight:700;letter-spacing:-.7px}
+ .subtitle{font-size:20px;fill:#52706c}
+ .label{font-size:23px;font-weight:700}
+ .body{font-size:19px;fill:#47655f}
+ .small{font-size:17px;fill:#52706c}
+ .num{font-size:18px;font-weight:700;fill:white}
+ .step{font-size:22px;font-weight:700}
+ .pill{font-size:17px;font-weight:700;fill:#f6fffc}
+ .link{stroke:#1b8379;stroke-width:3;fill:none;marker-end:url(#arrow)}
+ </style>
+</defs>
+<rect width="1440" height="920" rx="28" fill="#f4f7f3"/>
+<rect x="0" y="0" width="1440" height="9" fill="#1b8379"/>
+<text x="48" y="66" class="title">Build once. Reuse safely across Intel Macs.</text>
+<text x="48" y="102" class="subtitle">Homebrew Intel Bottle Pool · private sharing with verified compatibility</text>
+<rect x="1240" y="38" width="150" height="42" rx="21" fill="#173f39"/>
+<text x="1315" y="65" text-anchor="middle" class="pill">VERSION 0.3.5</text>
+<!-- Shared architecture: neither Mac has a fixed role. -->
+<rect x="48" y="152" width="350" height="224" rx="20" fill="#fff" stroke="#d6e3dc"/>
+<rect x="83" y="187" width="68" height="45" rx="5" fill="none" stroke="#1b8379" stroke-width="3"/>
+<path d="M74 240H160M104 233L99 240M130 233L135 240" stroke="#1b8379" stroke-width="3"/>
+<text x="176" y="211" class="label">Intel Mac A</text>
+<text x="83" y="282" class="body">Look up · build · validate</text>
+<text x="83" y="313" class="body">Upload or reuse a bottle</text>
+<text x="83" y="348" class="small">User starts Install / Update &amp; Upgrade</text>
+<rect x="545" y="152" width="350" height="224" rx="20" fill="#173f39"/>
+<text x="720" y="207" text-anchor="middle" class="label" style="fill:#fff">Private bottle pool</text>
+<text x="720" y="248" text-anchor="middle" class="body" style="fill:#d7eee3">NAS · server · persistent storage</text>
+<text x="720" y="287" text-anchor="middle" class="body" style="fill:#d7eee3">Authenticate · coordinate leases</text>
+<text x="720" y="318" text-anchor="middle" class="body" style="fill:#d7eee3">Verify hashes · store · serve</text>
+<text x="720" y="353" text-anchor="middle" class="small" style="fill:#a9d2c4">The server never compiles Homebrew.</text>
+<rect x="1042" y="152" width="350" height="224" rx="20" fill="#fff" stroke="#d6e3dc"/>
+<rect x="1077" y="187" width="68" height="45" rx="5" fill="none" stroke="#1b8379" stroke-width="3"/>
+<path d="M1068 240H1154M1098 233L1093 240M1124 233L1129 240" stroke="#1b8379" stroke-width="3"/>
+<text x="1170" y="211" class="label">Intel Mac B</text>
+<text x="1077" y="282" class="body">Look up · build · validate</text>
+<text x="1077" y="313" class="body">Upload or reuse a bottle</text>
+<text x="1077" y="348" class="small">Same protocol. No permanent roles.</text>
+<path d="M410 244H533" class="link"/>
+<path d="M533 283H410" class="link"/>
+<text x="471" y="221" text-anchor="middle" class="small">HTTPS / VPN</text>
+<path d="M907 244H1030" class="link"/>
+<path d="M1030 283H907" class="link"/>
+<text x="969" y="221" text-anchor="middle" class="small">HTTPS / VPN</text>
+<text x="720" y="415" text-anchor="middle" class="small">Reuse requires a matching macOS context, prefix, Cellar, formula and installed dependency identity.</text>
+<text x="48" y="478" class="label">Inside each client</text>
+<text x="1390" y="478" text-anchor="end" class="small">Local work first · verified artifacts only</text>
+<!-- The five steps of the formula workflow. -->
+<rect x="48" y="508" width="248" height="225" rx="16" fill="#fff" stroke="#d6e3dc"/>
+<circle cx="79" cy="540" r="16" fill="#1b8379"/><text x="79" y="546" text-anchor="middle" class="num">1</text>
+<text x="68" y="584" class="step">Plan consistently</text>
+<text x="68" y="620" class="body"><tspan x="68">Declared platform graph</tspan><tspan x="68" dy="29">Installed recipe hashes</tspan><tspan x="68" dy="29">Pin taps before build</tspan></text>
+<rect x="322" y="508" width="248" height="225" rx="16" fill="#fff" stroke="#d6e3dc"/>
+<circle cx="353" cy="540" r="16" fill="#1b8379"/><text x="353" y="546" text-anchor="middle" class="num">2</text>
+<text x="342" y="584" class="step">Find a bottle</text>
+<text x="342" y="620" class="body"><tspan x="342">Compatible pool hit?</tspan><tspan x="342" dy="29">Verify, then install.</tspan><tspan x="342" dy="29">Otherwise try upstream.</tspan></text>
+<rect x="596" y="508" width="248" height="225" rx="16" fill="#fff" stroke="#d6e3dc"/>
+<circle cx="627" cy="540" r="16" fill="#1b8379"/><text x="627" y="546" text-anchor="middle" class="num">3</text>
+<text x="616" y="584" class="step">Build on a miss</text>
+<text x="616" y="620" class="body"><tspan x="616">Coordinate with a lease</tspan><tspan x="616" dy="29">Use pinned local recipes</tspan><tspan x="616" dy="29">Record build evidence</tspan></text>
+<rect x="870" y="508" width="248" height="225" rx="16" fill="#fff" stroke="#d6e3dc"/>
+<circle cx="901" cy="540" r="16" fill="#1b8379"/><text x="901" y="546" text-anchor="middle" class="num">4</text>
+<text x="890" y="584" class="step">Validate the result</text>
+<text x="890" y="620" class="body"><tspan x="890">Bottle hash · brew test</tspan><tspan x="890" dy="29">Runtime graph · linkage</tspan><tspan x="890" dy="29">Compare build inputs</tspan></text>
+<rect x="1144" y="508" width="248" height="225" rx="16" fill="#fff" stroke="#d6e3dc"/>
+<circle cx="1175" cy="540" r="16" fill="#1b8379"/><text x="1175" y="546" text-anchor="middle" class="num">5</text>
+<text x="1164" y="584" class="step">Keep and share</text>
+<text x="1164" y="620" class="body"><tspan x="1164">Save to the local spool</tspan><tspan x="1164" dy="29">Verify published winner</tspan><tspan x="1164" dy="29">Upload or reuse safely</tspan></text>
+<path d="M298 565H318" class="link"/><path d="M572 565H592" class="link"/><path d="M846 565H866" class="link"/><path d="M1120 565H1140" class="link"/>
+<rect x="48" y="766" width="1344" height="110" rx="18" fill="#e4eee5"/>
+<text x="74" y="802" class="label">Recovery in 0.3.5</text>
+<text x="74" y="838" class="body">At most one replan per package. Reuse proven unchanged builds; rebuild safely when inputs change.</text>
+<text x="74" y="864" class="small">Repeated drift stops publication. Preserve legacy uploads for review. Retry failures; Resume remaining steps.</text>
+</svg>

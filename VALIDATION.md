@@ -1,6 +1,8 @@
 # Validation — Homebrew Intel Bottle Pool 0.3.5
 
-8 octombrie 2026. Surse reparate și testate; publicarea este blocată la notarizare.
+8 octombrie 2026. Acest document separă rezultatele testelor locale de condițiile
+care trebuie confirmate pentru fiecare produs final. O copie dintr-un branch nu
+certifică singură existența unui release public.
 
 ## Audit independent
 
@@ -12,8 +14,10 @@ Aceste probleme au fost corectate, fără slăbirea verificărilor de producție
 
 ## Verificări finalizate
 
-Toate cele **140 de teste** au trecut, fără skip, cu bundle local Intel 0.3.5,
-build 35. Testele acoperă schema 1, server fixture loopback, lease/fencing,
+Suita completă extinsă a trecut toate cele **157 de teste**, fără skip, cu bundle
+local Intel 0.3.5, build 35. Include regresiile de publicare și notarizare, plus
+cele cinci verificări ale opririi publicării înainte de contactarea GitHub.
+Testele acoperă schema 1, server fixture loopback, lease/fencing,
 spool offline, Retry/Resume/Stop, rollback, installer în directoare temporare,
 proveniență, graf declarat, schimbări reale runtime/build/test și sursele bundle.
 
@@ -33,6 +37,29 @@ din keg când deps nu selectează explicit modul recipe. Normalizarea sursei rea
 harfbuzz din tap produce exact hash-ul copiei .brew instalate pentru 14.6.0.
 Aceste verificări nu au rulat comenzi Homebrew mutative.
 
+Jurnalul local de la pasul node și manifestele spool-ului identifică
+googletest 1.18.0 ca dependență eșuată, cu două copii locale identice.
+Manifestul remote nu a fost citit; bytes/context de pe server rămân neconfirmate.
+Sunt adăugate regresii pentru variante separate la schimbarea formulei,
+reutilizarea verificată a unui build publicat, context/build inputs diferite
+refuzate, checksum upstream nesubstituit și carantină legacy fără modificarea
+bytes-urilor. Transportul notarizării verifică SSH, hash-ul transferat și păstrează
+profilul exclusiv pe Mac-ul care îl deține.
+
+Fluxul aplicației compilate a trecut verificarea izolată cu procese reale:
+oprire la primul eșec, păstrarea numărului de erori, Retry numai failed, Resume
+remaining, Stop cu închiderea copilului, Stop/Resume, Quit disponibil în Busy,
+configurație izolată și reconcilierea UI stale la lansare. Fixture-ul de bottle
+folosește tag-ul all, evitând presupunerea greșită că orice Mac rulează Tahoe.
+
+Testul funcțional Homebrew real a trecut pe Intel macOS 15.8.1, într-un prefix
+temporar: compilare C → bottle → server schema 1 local → dezinstalare temporară
+→ pour exclusiv din pool → brew test și executarea programului. Cask-ul temporar
+a trecut download → pool → dezinstalare → reinstalare cu sursa upstream ascunsă;
+SHA-256 al executabilului instalat corespunde celui original. Aplicația sintetică
+nesemnată nu este lansată ca test de Gatekeeper. Ruby, cache, loguri, Cellar și
+Applications sunt izolate; niciun pachet real al utilizatorului nu este modificat.
+
 ## Gate de distribuție
 
 Build-ul final trebuie să provină dintr-un checkout curat pe branch-ul autorizat.
@@ -43,10 +70,22 @@ Containerele DMG/ZIP sunt comparate cu app-ul semnat; source ZIP este comparat c
 fiecare fișier Git, iar SHA256SUMS.txt este verificat. Publicarea cere și Accepted,
 stapling și Gatekeeper pentru app/DMG, apoi descarcă release-ul pentru reverificare.
 
-Profilul HomebrewPoolNotary nu există pe acest MacBook. Notarizarea, stapling-ul,
-Gatekeeper pentru distribuție și release-ul GitHub nu sunt confirmate. Nu se cer
-parole noi și nu se extrag parole din Keychain. Un bundle semnat sau checksum-uri
-corecte nu constituie confirmare de notarizare.
+Pentru o distribuție finală, `app-notarization.json` și `dmg-notarization.json`
+trebuie să raporteze Accepted, iar ticket-urile reale ale app/DMG trebuie să treacă
+stapler și Gatekeeper. Logurile notarizării sunt incluse în artefacte și hash-uri.
+Nu se cer parole noi și nu se extrag parole din Keychain. Un bundle semnat sau
+checksum-uri corecte nu constituie confirmare de notarizare.
+
+Documentația și diagrama How it works au fost refăcute pentru întregul flux 0.3.5.
+Gate-ul cere toate documentele și PNG/SVG în source ZIP și în setul final de
+artefacte. Publicarea verifică toate fișierele descărcate din draft înainte de
+actualizarea branch-ului implicit stable și de marcarea release-ului v0.3.5 ca
+public/latest. Pregătirea se face exclusiv local; main și CI nu sunt folosite.
+
+Codul serverului, validarea protocolului și formatul job-urilor (`server.py`,
+`common.py`, `jobs.py`) sunt identice cu stable fee50c4; noile câmpuri de
+proveniență sunt metadata acceptate de schema 1. Compatibilitatea este verificată
+și prin serverul local real, fără schimbarea serviciului NAS.
 
 ## Limite și producție
 

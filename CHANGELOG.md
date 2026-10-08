@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.6 license revision 1 — October 8, 2026
+
+- Restore a prominent, detailed copyright/source-permission notice on the homepage and release notes, rather than the shortened footer.
+- Introduce LICENSE 1.1 for new copies: personal non-commercial official-product use permitted; commercial/business use and any code reuse, modification, integration, redistribution or derivative work require prior explicit written permission from StefanAlMare.
+- Preserve GitHub platform rights, third-party licenses and valid historical grants; do not rewrite old tags or claim retroactive revocation.
+- Refresh distribution license/readme/checksums locally without changing the v0.3.6 application binary or production state. Publish a clearly named license-revision edition.
+
 ## 0.3.6 preview — October 8, 2026
 
 - Add persistent Safe Pause / Resume at a current-formula safe boundary, separate Stop Now and active sleep prevention.

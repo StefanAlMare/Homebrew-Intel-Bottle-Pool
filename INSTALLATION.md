@@ -1,5 +1,7 @@
 # Installation and deployment guide
 
+> **License 1.1:** personal non-commercial use of the official unmodified app/server is permitted. **Commercial/business use and any code reuse, modification, integration, redistribution or derivative work require StefanAlMare's prior explicit written permission.** Not open source. See [LICENSE](LICENSE).
+
 [Home](README.md) · [Server setup](SERVER_SETUP.md) · [User guide](USER_GUIDE.md)
 
 Version 0.3.6 is a preview pending physical HP / MacBook Pro 2012 / Q9300 tests.
@@ -166,7 +168,7 @@ For each Mac:
 2. Verify the download:
 
    ```sh
-   shasum -a 256 Homebrew-Intel-Bottle-Pool-v0.3.6-standard.dmg
+   shasum -a 256 Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg
    ```
 
    Compare the full digest with the matching line in SHA256SUMS.txt. Use a full

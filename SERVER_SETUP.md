@@ -1,5 +1,7 @@
 # Private server setup
 
+> **License 1.1:** personal non-commercial use of the official unmodified app/server is permitted. **Commercial/business use and any code reuse, modification, integration, redistribution or derivative work require StefanAlMare's prior explicit written permission.** Not open source. See [LICENSE](LICENSE).
+
 [Home](README.md) · [Full installation](INSTALLATION.md) · [User guide](USER_GUIDE.md)
 
 For **new deployments**. Existing schema 1 servers need no reset, credential rotation or TrueNAS modification for a v0.3.6 client upgrade.

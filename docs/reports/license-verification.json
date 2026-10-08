@@ -1,0 +1,16 @@
+{
+  "license_version": "1.1",
+  "license_sha256": "ee98304219f002f3a34ac65a6a7c61e542477879246b0538e4323358b58af5d7",
+  "prominent_readme_notice": true,
+  "commercial_use_requires_written_permission": true,
+  "code_reuse_requires_written_permission": true,
+  "zip_and_dmg_license_match": true,
+  "historical_tag_not_rewritten": true,
+  "runtime_unchanged": true,
+  "signed_runtime_sources_match": true,
+  "app_notary": "6dd0ca14-3dc1-4ac8-a5aa-eb6001f4b0ea",
+  "dmg_notary": "2ecb2294-f59f-4aa1-8ce6-7646847cda6e",
+  "original_functional_tests": 201,
+  "original_gui_checks": 13,
+  "scope": "local license/documentation/distribution verification; no new full functional-suite run, production operations, Actions or remote builds"
+}

@@ -1,5 +1,7 @@
 # v0.3.6 standard preview — handover
 
+> **License 1.1:** personal non-commercial use of the official unmodified app/server is permitted. **Commercial/business use and any code reuse, modification, integration, redistribution or derivative work require StefanAlMare's prior explicit written permission.** Not open source. See [LICENSE](LICENSE).
+
 Finish current work before replacing an older app. In v0.3.6: Pause Safely, wait for Safely Paused, Quit. Open the standard DMG, drag Homebrew Pool.app onto Applications, choose Replace only when ready. Keep the previous binary.
 
 Launch from Applications. Existing legacy/XDG config, token/CA references, custom state_dir, queue and spool are reused. Do not delete job.json. Review and explicitly Resume/Retry. Separate .test settings are not migrated; do not run both editions on one Homebrew concurrently.

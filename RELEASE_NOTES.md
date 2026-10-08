@@ -1,5 +1,20 @@
 # Homebrew Intel Bottle Pool v0.3.6 — preview
 
+## License revision 1 — IMPORTANT
+
+**Copyright © 2026 StefanAlMare. All rights reserved. Source-available, NOT open source.**
+Personal, non-commercial use of the official unmodified app/server is permitted.
+**Commercial/business use and any source reuse, modification, integration into
+other projects, redistribution or derivative work require StefanAlMare's PRIOR
+EXPLICIT WRITTEN PERMISSION.** Attribution or a fork is not consent.
+See [LICENSE 1.1](LICENSE). Third-party packages retain their own licenses.
+
+This license-revision edition keeps the same v0.3.6 runtime binary. It makes the
+permission notice prominent and removes the earlier broad business-use grant
+for newly licensed copies. Historical tags/licenses are not rewritten, and valid
+prior grants are not retroactively revoked. Download the license-revision
+edition linked from the current homepage, not a historical source snapshot.
+
 Standard upgrade package, locally built for Intel macOS, Developer ID signed and Apple notarized. Published as a **prerelease** pending physical HP/MacBook Pro 2012/Core 2 Quad Q9300 tests.
 
 ## New features

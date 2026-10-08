@@ -1,5 +1,11 @@
 # Local release workflow
 
+The permission correction is published as v0.3.6-license.1, with the same
+runtime and LICENSE 1.1 inside the refreshed DMG, source and app ZIP packaging.
+Never move/rewrite the historical v0.3.6 tag or claim retroactive revocation.
+
+> **License 1.1:** personal non-commercial use of the official unmodified app/server is permitted. **Commercial/business use and any code reuse, modification, integration, redistribution or derivative work require StefanAlMare's prior explicit written permission.** Not open source. See [LICENSE](LICENSE).
+
 Builds/tests/signing/notarization run on the authorized local Intel Mac. No GitHub Actions, CI, hosted runners or remote builds. Publication requires separate explicit authorization.
 
 ## Local gates

@@ -1,86 +1,125 @@
 Homebrew Intel Bottle Pool Source-Available License
-Version 1.0, 2026-10-07
+Version 1.1, 2026-10-08
 
 Copyright (c) 2026 StefanAlMare. All rights reserved.
 
-1. Definitions
+IMPORTANT: This is NOT an open-source or permissive license.
+Personal, non-commercial use of the official unmodified Product is permitted.
+Commercial/business use and any source-code reuse, modification, integration,
+redistribution or derivative work require StefanAlMare's PRIOR EXPLICIT WRITTEN
+PERMISSION. Public availability, attribution, a fork or silence is not consent.
 
-"Product" means the official, unmodified Homebrew Intel Bottle Pool release
-published by StefanAlMare, including its macOS application, server component,
-command-line client, documentation, and release archives.
+1. Definitions and ownership
 
-"Source Code" means the human-readable code, scripts, build files, tests, and
-other source materials in this repository or a source archive.
+"Product" means the official, unmodified Homebrew Intel Bottle Pool application,
+server, command-line client, documentation and distribution supplied by
+StefanAlMare with this license.
 
-"Written Permission" means an explicit authorization issued by StefanAlMare in
-a durable written form that identifies the permitted person or organization and
-the permitted use.
+"Source Code" means this project's human-readable code, scripts, build files,
+tests, documentation and other original source materials.
 
-2. Permission to download and use the Product
+"Written Permission" means prior explicit authorization from StefanAlMare in a
+durable written form identifying the recipient and the exact permitted use.
+Permission for one use, person or project does not authorize another.
 
-You may, without charge, download and run an official, unmodified release of the
-Product for any lawful personal, educational, internal, or business operational
-purpose. This includes running the unmodified server component and clients as
-necessary to use the Product for its intended private bottle-pool function.
+All rights not expressly granted here are reserved by StefanAlMare. No
+ownership, trademark, patent or additional source-code rights are transferred.
 
-You may make reasonable backup copies of an official release for your own use.
-This permission does not grant a right to redistribute, sell, sublicense, host
-for third parties, or offer the Product as a service.
+2. Limited permission to use the official Product
+
+An individual may download and run the official, unmodified Product without
+charge for lawful personal, non-commercial use, including personal education
+and evaluation. This includes running its unmodified server and clients for
+that individual's private bottle pool, and executing or building the unmodified
+server source solely as necessary for that permitted use.
+
+Reasonable private backup copies are permitted. Normal configuration through
+documented settings and deployment parameters is permitted; it does not grant
+permission to alter the program or reuse its code.
+
+Any business, professional or commercial use requires prior Written Permission,
+including internal business operations, paid services, monetization, hosting for
+third parties, resale, sublicensing, bundling, or use in a commercial product,
+service or project. This applies even if the Product is unmodified or no fee is
+charged for the Product itself.
+
+No redistribution, public mirror, third-party hosting, source-code integration
+or derivative-work permission is granted by the personal-use allowance.
 
 3. Source Code restrictions
 
-The Source Code is made available for transparency, security review, and
-evaluation. Except for viewing it, forking it through functionality provided by
-GitHub, and executing the unmodified Source Code solely as necessary to use the
-official Product under Section 2, no rights are granted to the Source Code.
+The Source Code is public for viewing, transparency, security review and
+evaluation, not for unrestricted reuse. Subject only to the limited execution
+permission in Section 2, GitHub platform rights in Section 4, and rights that
+applicable law does not allow this license to exclude, prior Written Permission
+is required to:
 
-Without prior Written Permission from StefanAlMare, you may not:
+- copy or reuse any Source Code in another project, application or service;
+- integrate or incorporate it, in whole or in part, into another codebase;
+- modify, adapt, translate, merge or create derivative works;
+- compile, package or distribute modified versions;
+- redistribute, republish, mirror, sublicense, sell, rent or license the Source
+  Code or Product to third parties;
+- use the Source Code or Product commercially, in business operations or as a
+  hosted service, whether for payment or another commercial advantage;
+- remove or alter copyright, credit, attribution, license or permission notices.
 
-- copy Source Code into another project or product;
-- modify, adapt, translate, merge, or create derivative works from Source Code;
-- compile, package, or distribute modified versions;
-- redistribute or republish Source Code or substantial portions of it outside
-  the limited functionality permitted by GitHub's applicable terms;
-- remove or alter copyright, credit, license, or attribution notices;
-- use Source Code to create or provide a competing product or hosted service;
-- sublicense, sell, rent, lease, or otherwise commercially exploit Source Code.
+These restrictions apply to non-commercial as well as commercial code reuse.
+Giving credit, making a fork, opening an issue or pull request, or receiving no
+reply does not grant permission. No implied license is granted.
 
-Any use not expressly permitted by Section 2 or this Section 3 requires prior
-Written Permission from StefanAlMare. Permission may include additional terms.
+4. Public GitHub access
 
-4. Contributions
+GitHub users retain the limited rights to view and fork a public repository
+through GitHub functionality under GitHub's applicable Terms of Service.
+This license does not purport to remove those platform rights. They are not
+permission to reuse, integrate, modify, redistribute or commercialize the code
+outside those limited rights. Public visibility is not an open-source grant.
 
-No right to submit, merge, or use a contribution is implied. A contribution may
-be accepted only under separate written terms agreed with StefanAlMare. Opening
-an issue or pull request does not itself grant either party additional rights.
+5. Contributions
 
-5. Third-party software and names
+No permission to submit, merge or use a contribution is implied. Contributions
+require separate written terms agreed with StefanAlMare. An issue or pull
+request alone grants no additional rights.
 
-Third-party components, if any, remain subject to their own licenses. Homebrew
-and related names or marks belong to their respective owners. This Product is
-independent and is not affiliated with or endorsed by Homebrew.
+6. Third-party software
 
-6. No warranty
+This license covers only rights held by StefanAlMare in this project.
+Homebrew, formulae, bottles, Casks, dependencies and other third-party material
+retain their own licenses; this document does not relicense them or restrict
+rights granted by their owners.
+
+Homebrew and related names/marks belong to their owners. This independent
+Product is not affiliated with or endorsed by Homebrew.
+
+7. No warranty and limitation of liability
 
 THE PRODUCT AND SOURCE CODE ARE PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT
-WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, SECURITY,
-OR ERROR-FREE OPERATION. YOU USE THEM AT YOUR OWN RISK.
+WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, SECURITY OR ERROR-FREE OPERATION.
+YOU USE THEM AT YOUR OWN RISK.
 
-TO THE MAXIMUM EXTENT PERMITTED BY LAW, STEFANALMARE SHALL NOT BE LIABLE FOR ANY
-CLAIM, LOSS, DATA LOSS, INTERRUPTION, OR OTHER DAMAGES ARISING FROM THE PRODUCT,
-SOURCE CODE, OR THEIR USE.
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, STEFANALMARE SHALL NOT BE
+LIABLE FOR ANY CLAIM, LOSS, DATA LOSS, INTERRUPTION OR OTHER DAMAGES ARISING
+FROM THE PRODUCT, SOURCE CODE OR THEIR USE.
 
-7. Termination
+8. Termination
 
-The permission in Section 2 terminates automatically if you violate this license.
-Upon termination, you must stop using and distributing any unauthorized copies
-or derivative works. Provisions concerning ownership, restrictions, warranty,
-and liability survive termination.
+The limited permission in this license terminates automatically if you violate
+its terms. Stop unauthorized use and distribution upon termination. Ownership,
+restrictions, disclaimers and liability provisions survive termination.
 
-8. Permission requests
+9. Version scope and prior distributions
 
-To request permission for source-code reuse, modification, integration,
-redistribution, derivative work, or another use not granted here, contact the
-GitHub account StefanAlMare and describe the exact intended use. Permission is
-not granted unless and until StefanAlMare provides explicit Written Permission.
+Version 1.1 applies to copies distributed with Version 1.1 and to new grants
+made under it. This revision does not claim to revoke valid permissions already
+granted under the license accompanying an earlier copy. Historical releases
+and tags retain their historical license and provenance. A later restrictive
+notice is not a retroactive cancellation of an earlier valid grant.
+
+10. Permission requests
+
+Contact the GitHub account StefanAlMare and describe the exact person or
+organization, project, intended reuse or commercial use, and distribution.
+Do not send secrets or private commercial information in a public issue.
+Permission exists only after StefanAlMare gives explicit Written Permission.

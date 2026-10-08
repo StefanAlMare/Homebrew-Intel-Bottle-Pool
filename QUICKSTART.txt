@@ -1,12 +1,21 @@
 Homebrew Intel Bottle Pool 0.3.6 — STANDARD PREVIEW
 
+COPYRIGHT / PERMISSION — LICENSE 1.1
+  Copyright (c) 2026 StefanAlMare. All rights reserved. NOT open source.
+  Official unmodified app/server: personal, non-commercial use permitted.
+  Commercial/business use, code reuse, modification, integration into other
+  projects, redistribution and derivative works require StefanAlMare's PRIOR
+  EXPLICIT WRITTEN PERMISSION. Attribution or a fork is not consent.
+  Read License.txt / LICENSE. Third-party packages retain their own licenses.
+  Earlier copies retain their accompanying license; no retroactive revocation.
+
 Home / guides
   https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool
   README.md, INSTALLATION.md, SERVER_SETUP.md, USER_GUIDE.md
   This is the normal upgrade package, not the isolated .test edition.
 
 Install / Upgrade
-  1. Download standard DMG + SHA256SUMS.txt from v0.3.6.
+  1. Download standard DMG + SHA256SUMS.txt from v0.3.6-license.1.
      Calculate its SHA-256; compare the full digest with its matching line.
      A full -c check needs all listed assets downloaded.
   2. Finish work and Quit before replacement. In v0.3.6 Pause Safely, wait for

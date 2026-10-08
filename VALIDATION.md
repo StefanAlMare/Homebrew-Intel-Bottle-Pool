@@ -1,5 +1,14 @@
 # Validation — v0.3.6 standard preview
 
+## License revision 1
+
+This edition changes license/documentation and distribution packaging only.
+The v0.3.6 application binary is unchanged; the 201-test/13-GUI results below
+are the completed functional checks of that same runtime, not a claim that the
+entire suite was rerun for a legal-text edit. Revised license copies, archive
+contents, exact runtime source identity, signatures, DMG notarization and final
+downloaded hashes must be verified again before publishing the new edition.
+
 October 8, 2026. Local isolated fixtures only unless explicitly identified. No production TrueNAS, token, queue, spool or installed app changes.
 
 ## Executed

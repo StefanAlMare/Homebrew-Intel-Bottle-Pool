@@ -15,7 +15,7 @@ from .jobs import Job
 from .processes import JobStopped, install_stop_handlers
 from .maintenance import run_maintenance
 
-VERSION = "0.3.3"
+VERSION = "0.3.4"
 
 
 def default_config():
@@ -47,7 +47,7 @@ def main(argv=None):
     maintenance = commands.add_parser("maintenance", help="Run one explicit maintenance command")
     maintenance.add_argument("--administrator", action="store_true")
     maintenance.add_argument("--confirmed", action="store_true")
-    maintenance.add_argument("command")
+    maintenance.add_argument("maintenance_command")
     settings = commands.add_parser("settings", help="GUI configuration JSON on stdin; secrets never in argv")
     settings.add_argument("--save", action="store_true")
     install = commands.add_parser("install")
@@ -137,8 +137,13 @@ def main(argv=None):
                         job.reconcile()
                     job.emit()
         elif args.command == "maintenance":
-            run_maintenance(args.command, client.state, administrator=args.administrator,
-                            confirmed=args.confirmed)
+            try:
+                run_maintenance(args.maintenance_command, client.state, administrator=args.administrator,
+                                confirmed=args.confirmed)
+            except subprocess.CalledProcessError as error:
+                code = error.returncode if 0 < error.returncode < 256 else 1
+                print("HOMEBREW_POOL_EXIT_CODE=" + str(code), file=sys.stderr, flush=True)
+                return code
             print("HOMEBREW_POOL_EXIT_CODE=0", flush=True)
         elif args.command == "sync":
             results = client.sync()

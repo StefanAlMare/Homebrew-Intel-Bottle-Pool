@@ -1,64 +1,47 @@
-# Homebrew Intel Bottle Pool 0.3.3 — Release Notes
+# Homebrew Intel Bottle Pool 0.3.4 — Release Notes
 
-Data: 7 octombrie 2026. Build: Intel x86_64, macOS 12+.
+Data: 8 octombrie 2026.
 
-## Recovery prioritar
+## Hotfix Retry Failed
 
-Versiunea 0.3.3 elimină blocarea în care aplicația rămânea vizual
-`Paused / Stopped`, cu numai `Resume` și `Stop`, deși backendul raporta `idle`,
-zero eșecuri și zero pași rămași. La cold launch, la deschiderea meniului și apoi
-la fiecare 10 secunde, starea schema 1 a backendului este autoritară. Cache-urile
-GUI reziduale și joburile deja rezolvate nu mai blochează operațiile normale.
+Pentru un keg deja instalat și curent care nu are receipt `built_as_bottle`,
+clientul nu mai apelează combinația invalidă `brew reinstall --build-bottle`.
+Folosește comanda acceptată de Homebrew:
 
-`Repair Pool State…` oferă două acțiuni explicite:
+`brew install --formula --build-bottle --force [--as-dependency] FORMULA`
 
-- reconcilierea UI cu backendul;
-- `Discard Pending Job`, care anulează numai coada rămasă și păstrează formulae,
-  Cask-uri, bottle-uri, config, token și spool deja existente.
+Înainte de comandă, keg-ul curent este mutat atomic într-un backup al aceluiași
+rack/volum. La orice eșec ulterior — build, `brew bottle`, postinstall, test,
+hash/manifest/context sau publicare — keg-ul nou este eliminat și cel original
+este restaurat, inclusiv starea linked. Backup-ul este șters numai după validarea
+completă și păstrarea bottle-ului în spool. Dacă receipt-ul este deja
+`built_as_bottle`, compilarea este omisă și se reiau doar bottle/test/validare.
+O cerere Stop oprește build-ul, dar nu întrerupe pașii bounded de unlink/link
+necesari restaurării keg-ului original.
 
-## Dependențe înainte de formula dependentă
+Retry folosește `failed_package` când eroarea aparține unei dependențe nested.
+Astfel, cazul `fastfetch` → `pkgconf` repară/revalidează `pkgconf` fără a forța o
+recompilare inutilă a lui `fastfetch`. Pașii pending rămân în `job.json` și se
+execută numai după Resume.
+Pentru cozi create de v0.3.3, care nu aveau încă `failed_package`, hotfix-ul
+recuperează strict numele din diagnosticul Homebrew salvat
+`Formula was not installed with --build-bottle` fără a modifica anticipat job-ul.
 
-Graful topologic al dependențelor runtime este verificat și adus la zi înainte ca
-formula dependentă să fie declarată current sau să ajungă la build/publicare.
-Scenariul `coreutils: Runtime dependency not current: openssl@3` are o cale de
-recovery dedicată: `Repair / Install Dependency…`, apoi `Retry Failed` și
-`Resume`. Coada originală rămâne intactă. După reparație se rulează `brew
-missing` și `brew linkage --test`, iar retry-ul reface validarea contextului
-formula/dependențe înainte de publicarea bottle-ului.
+## Hotfix Maintenance Console
 
-## Maintenance Console
+Argumentul positional nu mai suprascrie subcomanda argparse `maintenance`.
+Backend-ul primește acum `maintenance_command`, execută exact șirul introdus,
+păstrează stdout/stderr live și returnează codul real al procesului. Interfața
+nu mai poate afișa `[exit code 0]` pentru o comandă care nu a fost lansată.
 
-Noua consolă este disponibilă permanent din meniu, inclusiv în Healthy, Offline,
-Paused, Stopped, Action Required și Error. Oferă:
+Protecția comenzilor distructive, autorizarea administrator, locking-ul,
+stdin-ul închis și eliminarea secretului din mediu sunt neschimbate.
 
-- câmp pentru o comandă lansată numai prin acțiunea explicită Run;
-- stdout/stderr live, istoric vizibil în sesiune, Stop Command și exit code;
-- shortcut-uri `brew doctor`, `brew outdated`, `brew missing` și
-  `brew linkage --test`;
-- comenzi arbitrare explicite pentru diagnostic sau reparare Homebrew/Pool.
+## Compatibilitate și operare
 
-Comenzile care modifică Homebrew folosesc același lock exclusiv ca joburile
-normale. Diagnosticele read-only folosesc shared lock și nu rulează peste un
-writer. Stdin este închis, textul logurilor nu este executat, iar comenzile
-distructive cer confirmare. Un prefix `sudo` este delegat dialogului nativ macOS;
-aplicația nu colectează parola. Consola nu modifică resursele de cod ale app-ului
-semnat/notarizat; bug-urile de cod se livrează printr-un release semnat ulterior.
-
-## Compatibilitate păstrată
-
-Rămân disponibile Update & Upgrade, Install Auto/Formula/Cask, Settings, Sync
-now, Start at Login, logurile, iconițele template adaptive, versiunile de tip
-dată, filtrarea outputului `brew deps`, `root_url` pentru tap-uri externe, PATH
-Intel și self-heal remotes exclusiv prin fetch + fast-forward. Protocolul server
-rămâne schema 1; nu există schimbări de token sau server privat.
-
-Release-ul este local. Nu au fost create sau modificate repository-uri, Actions,
-CI ori release-uri GitHub.
-
-## Validare finală
-
-- 104 teste automate: OK;
-- pilot GUI compilat, inclusiv cold-launch stale UI versus backend idle: OK;
-- pilot Homebrew real și izolat pentru Formula și Cask: OK;
-- app și DMG Developer ID: Apple Accepted, stapled și Gatekeeper accepted;
-- bundle `0.3.3` build `33`, Intel x86_64, deployment macOS 12.
+- bundle `0.3.4`, build `34`, Intel x86_64, minimum macOS 12;
+- protocolul pool/schema 1 este neschimbat și compatibil cu v0.3.3;
+- config-ul, tokenul, spool-ul și `job.json` existente sunt păstrate la instalare;
+- aplicația nu lansează automat upgrade-uri sau comenzi de mentenanță;
+- nu s-a modificat TrueNAS; build-ul, testele, semnarea și notarizarea au fost
+  executate local, iar GitHub este folosit numai pentru distribuirea release-ului final.

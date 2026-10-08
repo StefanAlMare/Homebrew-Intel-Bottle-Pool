@@ -69,5 +69,5 @@ if [ "$login" -eq 1 ]; then
 fi
 
 if [ "$launch" -eq 1 ]; then open "$target_app"; fi
-echo "Installed Homebrew Pool 0.3.3 in: $target_app"
+echo "Installed Homebrew Pool 0.3.4 in: $target_app"
 echo "No automatic brew upgrade was scheduled. Use the menu command when you choose."

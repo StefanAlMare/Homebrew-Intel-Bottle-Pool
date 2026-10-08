@@ -46,8 +46,8 @@ class MacApplicationTests(unittest.TestCase):
         with (app / "Contents" / "Info.plist").open("rb") as stream:
             info = plistlib.load(stream)
         self.assertTrue(info["LSUIElement"])
-        self.assertEqual(info["CFBundleShortVersionString"], "0.3.3")
-        self.assertEqual(info["CFBundleVersion"], "33")
+        self.assertEqual(info["CFBundleShortVersionString"], "0.3.4")
+        self.assertEqual(info["CFBundleVersion"], "34")
         self.assertTrue((app / "Contents" / "Resources" / "client" / "pool" / "client.py").is_file())
         self.assertTrue((app / "Contents" / "Resources" / "HomebrewPool.icns").is_file())
         self.assertTrue((app / "Contents" / "MacOS" / "HomebrewPoolMenu").is_file())

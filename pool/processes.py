@@ -78,9 +78,11 @@ def _tracked_exists(tracked):
     return any(pid in table and table[pid][2] == born for pid, born in tracked.items())
 
 
-def run_command(argv, *, env=None, cwd=None, stream=False, interrupt_timeout=8, terminate_timeout=4):
+def run_command(argv, *, env=None, cwd=None, stream=False, interrupt_timeout=8, terminate_timeout=4,
+                honor_stop=True):
     """All Brew/Git/producer children inherit a private session, never the GUI's."""
-    check_stop()
+    if honor_stop:
+        check_stop()
     process = subprocess.Popen(argv, env=env, cwd=cwd, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,
                                start_new_session=True)
@@ -97,7 +99,7 @@ def run_command(argv, *, env=None, cwd=None, stream=False, interrupt_timeout=8, 
     groups = {process.pid}
     try:
         while selector.get_map() or process.poll() is None or (stopping is not None and (_group_exists(process.pid) or _tracked_exists(tracked))):
-            if STOP.is_set() and stopping is None:
+            if honor_stop and STOP.is_set() and stopping is None:
                 table = _process_table()
                 _remember_children(process.pid, tracked, table)
                 for pid, born in tracked.items():
@@ -156,7 +158,8 @@ def run_command(argv, *, env=None, cwd=None, stream=False, interrupt_timeout=8, 
                 print("HOMEBREW_POOL_PROCESS_GROUP_DONE=" + str(group), flush=True)
     out = b"".join(stdout).decode("utf-8", errors="replace")
     err = b"".join(stderr).decode("utf-8", errors="replace")
-    check_stop()
+    if honor_stop:
+        check_stop()
     if process.returncode:
         raise subprocess.CalledProcessError(process.returncode, argv, output=out, stderr=err)
     if not stream and err:

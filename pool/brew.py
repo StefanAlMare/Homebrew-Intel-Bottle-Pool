@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 
 from .actions import ActionRequired, classify_command_failure
@@ -71,6 +72,10 @@ class Brew:
             if action:
                 raise action from error
             raise
+
+    def _run_recovery(self, *args):
+        """Finish a bounded rollback even after the user has requested Stop."""
+        return run_command([self.executable, *args], env=self.env, stream=True, honor_stop=False)
 
     @staticmethod
     def package_lines(output, taps=False):
@@ -378,6 +383,63 @@ class Brew:
         if not self.up_to_date(installed):
             raise PoolError("Homebrew did not install requested current version")
 
+    def _matching_install(self, info):
+        version = self.pkg_version(info)
+        return next((item for item in info.get("installed", []) if item.get("version") == version), None)
+
+    def _stage_current_keg(self, info):
+        """Atomically preserve a current keg while Homebrew rebuilds the same version."""
+        receipt = self._matching_install(info)
+        if not receipt:
+            raise PoolError("Cannot stage a keg that is not the current formula version: " + info["full_name"])
+        rack = Path(self.cellar) / info["name"]
+        keg = rack / receipt["version"]
+        cellar = Path(self.cellar).resolve()
+        try:
+            keg.resolve().relative_to(cellar)
+        except (OSError, ValueError) as error:
+            raise PoolError("Installed keg is outside the configured Homebrew Cellar: " + str(keg)) from error
+        if not keg.is_dir():
+            raise PoolError("Installed keg is missing: " + str(keg))
+        backup = rack / (receipt["version"] + ".pool-backup-" + uuid.uuid4().hex)
+        linked_record = Path(self.prefix) / "var" / "homebrew" / "linked" / info["name"]
+        was_linked = linked_record.exists() or linked_record.is_symlink()
+        if was_linked:
+            self.run("unlink", info["full_name"], capture=False)
+        try:
+            os.replace(keg, backup)
+        except BaseException:
+            if was_linked:
+                self._run_recovery("link", info["full_name"])
+            raise
+        return {"name": info["full_name"], "keg": keg, "backup": backup,
+                "linked_record": linked_record, "was_linked": was_linked}
+
+    def _restore_staged_keg(self, staged):
+        """Restore the exact pre-build keg after any interrupted or failed rebuild."""
+        name, keg, backup = staged["name"], staged["keg"], staged["backup"]
+        if staged["linked_record"].exists() or staged["linked_record"].is_symlink():
+            try:
+                self._run_recovery("unlink", name)
+            except subprocess.CalledProcessError:
+                pass
+        if keg.exists() or keg.is_symlink():
+            if keg.is_dir() and not keg.is_symlink():
+                shutil.rmtree(keg)
+            else:
+                keg.unlink()
+        if not backup.is_dir():
+            raise PoolError("Cannot recover original Homebrew keg; backup is missing: " + str(backup))
+        os.replace(backup, keg)
+        if staged["was_linked"]:
+            self._run_recovery("link", name)
+
+    def _commit_staged_keg(self, staged):
+        """Discard the backup only after the replacement bottle is fully validated."""
+        if not staged["was_linked"] and (staged["linked_record"].exists() or staged["linked_record"].is_symlink()):
+            self.run("unlink", staged["name"], capture=False)
+        shutil.rmtree(staged["backup"])
+
     def build(self, info, manifest, lease, as_dependency=False):
         name = info["full_name"]
         # No architecture-specific tuning: use Homebrew's portable CPU baseline.
@@ -386,11 +448,28 @@ class Brew:
         tap = info.get("tap")
         if tap and tap not in self.package_lines(self.run("tap"), taps=True):
             self.run("tap", "--force", tap, capture=False)
+        # Revalidate after tap synchronization and dependency work, before either
+        # replacing an installed keg or publishing anything derived from it.
+        fresh = self.info(name)
+        if self.pkg_version(fresh) != manifest["version"] or self.context(fresh) != manifest["metadata"]["context"]:
+            raise PoolError("Formula/dependency context changed before build; retry: " + name)
+        info = fresh
         flags = ["--as-dependency"] if as_dependency else []
-        action = "reinstall" if self.up_to_date(info) and name in self.force_targets else "install"
-        self.run(action, "--formula", "--build-bottle", *flags, name, capture=False)
+        current_retry = self.up_to_date(info) and name in self.force_targets
+        receipt = self._matching_install(info)
+        already_prepared = bool(current_retry and receipt and receipt.get("built_as_bottle"))
+        staged = None
+        install_completed = already_prepared
         postinstalled = False
+        validated = False
         try:
+            if not already_prepared:
+                install_args = ["install", "--formula", "--build-bottle"]
+                if current_retry:
+                    staged = self._stage_current_keg(info)
+                    install_args.append("--force")
+                self.run(*install_args, *flags, name, capture=False)
+                install_completed = True
             with tempfile.TemporaryDirectory(prefix="bottle-", dir=str(self.client.state)) as work:
                 self.sync_tap_for_build(info)
                 bottle_args = ["bottle", "--json", "--keep-old"]
@@ -429,9 +508,16 @@ class Brew:
                         self.client.publish_entry(queued, lease)
                     except Unavailable:
                         pass
+                validated = True
         finally:
-            # --build-bottle skips this; the building Mac also needs usable software.
-            if not postinstalled:
+            if staged:
+                if validated:
+                    self._commit_staged_keg(staged)
+                else:
+                    self._restore_staged_keg(staged)
+            # --build-bottle skips this; a fresh/non-transactional installation
+            # still needs postinstall even when a later bottle step failed.
+            if not staged and install_completed and not postinstalled:
                 self.run("postinstall", name, capture=False)
 
     @staticmethod
@@ -574,11 +660,28 @@ class Brew:
                 job.start("upgrade", steps, dict(names=list(names), allow_build=allow_build, casks=casks))
             self._run_job(job, mode, skip)
 
+    def _retry_target(self, item):
+        if item.get("failed_package"):
+            return item["failed_package"]
+        # v0.3.3 persisted the nested package only inside this exact Homebrew
+        # diagnostic. Recover it narrowly so an existing paused queue does not
+        # force both the parent formula and the dependency on first v0.3.4 Retry.
+        match = re.search(
+            r"Formula was not installed with `--build-bottle`:\s+"
+            r"([A-Za-z0-9][A-Za-z0-9_+@.-]*(?:/[A-Za-z0-9][A-Za-z0-9_+@.-]*){0,2})",
+            item.get("error", ""),
+        )
+        if match:
+            self.validate_name(match.group(1))
+            return match.group(1)
+        return item["name"]
+
     def _run_job(self, job, mode, skip=()):
         self.active_job = job
         if mode == "retry":
-            self.force_targets = {s["name"] for s in job.failures}
-            self.force_targets.update(s["failed_package"] for s in job.failures if s.get("failed_package"))
+            # A parent step can fail while building a nested dependency. Force
+            # exactly the attributed package, not both dependency and parent.
+            self.force_targets = {self._retry_target(s) for s in job.failures}
         interrupted = [s for s in job.remaining if s.get("interrupted") or s["status"] == "running"]
         self.force_targets.update(s["name"] for s in interrupted)
         self.force_targets.update(s["failed_package"] for s in interrupted if s.get("failed_package"))

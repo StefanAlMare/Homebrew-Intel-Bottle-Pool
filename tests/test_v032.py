@@ -165,7 +165,8 @@ class BrewPauseTests(Fixture):
         self.assertTrue(mac.up_to_date(mac.info("demo")))
         blocked = False
         mac.upgrade(mode="resume")
-        self.assertIn(("reinstall", "--formula", "--build-bottle", "demo"), mac.calls)
+        self.assertIn(("install", "--formula", "--build-bottle", "--force", "demo"), mac.calls)
+        self.assertFalse(any(call[0] == "reinstall" and "--build-bottle" in call for call in mac.calls))
         self.assertEqual(Job(mac.client.state).report()["status"], "completed")
 
     def test_retry_revalidates_dependency_whose_keg_was_installed_before_failure(self):
@@ -183,7 +184,8 @@ class BrewPauseTests(Fixture):
         self.assertEqual(Job(mac.client.state).failures[0]["failed_package"], "dep")
         mac.fail_test = False
         mac.upgrade(mode="retry")
-        self.assertIn(("reinstall", "--formula", "--build-bottle", "dep"), mac.calls)
+        self.assertIn(("install", "--formula", "--build-bottle", "--force", "dep"), mac.calls)
+        self.assertFalse(any(call[0] == "reinstall" and "--build-bottle" in call for call in mac.calls))
         self.assertEqual(Job(mac.client.state).report()["failed_count"], 0)
 
     def test_upgrade_pauses_before_next_formula_cask_adapter_or_final_sync(self):
@@ -210,7 +212,8 @@ class BrewPauseTests(Fixture):
             mac.upgrade(casks=False, update=False)
         mac.fail_test = False
         mac.upgrade(mode="retry")
-        self.assertIn(("reinstall", "--formula", "--build-bottle", "demo"), mac.calls)
+        self.assertIn(("install", "--formula", "--build-bottle", "--force", "demo"), mac.calls)
+        self.assertFalse(any(call[0] == "reinstall" and "--build-bottle" in call for call in mac.calls))
         self.assertTrue(list(self.store.objects.glob("*/manifest.json")))
 
 

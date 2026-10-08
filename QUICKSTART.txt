@@ -1,4 +1,4 @@
-Homebrew Intel Bottle Pool 0.3.3 — Quick Start
+Homebrew Intel Bottle Pool 0.3.4 — Quick Start
 
 Requirements
   Intel x86_64 Mac, macOS 12+, Homebrew, and Python 3.9+.

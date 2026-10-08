@@ -1,98 +1,47 @@
-# Validation — Homebrew Intel Bottle Pool 0.3.3
+# Validation — Homebrew Intel Bottle Pool 0.3.4
 
-Validation date: 7 October 2026.
+Data validării: 8 octombrie 2026.
 
-## Release result
+## Build
 
-The final application is `0.3.3` build `33`, Intel `x86_64`, with a macOS 12
-deployment target. It was signed with Developer ID Application certificate
-SHA-1 `9FEDAF606F7CB05FC9FB2DB6B31C5F518BD78724`, Team ID `YWVVK7QZ6X`, Hardened
-Runtime and an Apple timestamp.
+- aplicație `0.3.4`, build `34`, Intel `x86_64`, deployment target macOS 12;
+- build local cu Swift 6.3.3 pe macOS Intel;
+- semnare Developer ID Application, hardened runtime și Apple timestamp;
+- sursele incluse în bundle sunt comparate byte-for-byte cu sursele release.
 
-Apple Notary accepted both final submissions:
+## Teste automate
 
-- app receipt: `a801dacc-4a0c-48ff-8830-3f944533175d`;
-- DMG receipt: `11347a9a-7ea3-42f4-9879-7b9ca2a32133`.
+Toate cele **112 teste automate** au trecut. Suita verifică protocolul schema 1, spool/lease/fencing, formulae,
+Cask-uri, coada persistentă, Stop/Resume, preflight, Maintenance Console și
+aplicația macOS. Regresiile 0.3.4 acoperă explicit:
 
-The app and DMG were stapled successfully. `stapler validate` and Gatekeeper
-assessment passed for both, with `source=Notarized Developer ID`. Apple logs
-reported `issues: null`.
+- keg instalat/current fără `built_as_bottle`: numai `install --build-bottle
+  --force`, niciodată `reinstall --build-bottle`;
+- backup atomic și restaurarea payload-ului/linked state după un test eșuat;
+- o cerere Stop nu poate întrerupe rollback-ul bounded al keg-ului original;
+- receipt deja bottle-ready fără recompilare;
+- dependență nested atribuită lui `pkgconf`, fără forțarea părintelui;
+- migrarea țintei nested din eroarea legacy v0.3.3 fără `failed_package`;
+- două failed + 10 remaining păstrate în job-ul persistent;
+- output read-only, exit code 7 real și comandă mutativă controlată în fixture,
+  fără a atinge Homebrew-ul real.
 
-## Automated and native workflow validation
+## Verificări release
 
-All **104 automated tests** passed on the final source. Coverage includes:
+Apple Notary a acceptat ambele trimiteri:
 
-- server schema 1, authentication, leases, atomic publication, SHA-256,
-  fencing, offline spool and protocol compatibility;
-- formula/Cask installation, local and official bottles, dependency contexts,
-  date versions, warning filtering, external `root_url`, Intel PATH and safe
-  fetch + fast-forward-only remote repair;
-- durable queue pause/retry/resume/resolve/cancel, Action Required, Stop/Quit and
-  process-group cleanup;
-- stale GUI state versus authoritative backend `idle/resolved`, including a
-  stopped cache with zero failures and zero remaining work;
-- runtime dependency traversal before the dependent formula's current/build
-  shortcut, paused-queue-preserving dependency repair, `brew missing` and
-  `brew linkage --test` revalidation;
-- maintenance command classification, destructive-command confirmation, closed
-  stdin, shared/exclusive locking, exit path and permanent recovery controls;
-- app metadata, version `0.3.3` build `33`, embedded client, signature checks and
-  installer preservation of the existing configuration.
+- app: `ad506683-fc78-4041-baa8-3a8e9ea47f66`;
+- DMG: `59d0b2ed-6361-4b7b-8a9c-dd2dd37d3e78`.
 
-The compiled GUI workflow passed these isolated checks:
+Se verifică semnătura, certificatul/Team ID, arhitectura,
+stapling-ul, Gatekeeper, DMG-ul read-only, conținutul ZIP/DMG, installerul și
+absența configurației/tokenului din bundle. Identificatorii notarizării sunt
+păstrați în `dist/app-notarization.json` și `dist/dmg-notarization.json`.
 
-- cold launch with `pending-run.json` saying Stopped while backend has no
-  `job.json` and reports idle;
-- immediate clearing of the stale UI cache and unlocking of Update & Upgrade,
-  Install and Sync;
-- pause on first error, persistent failed count, retry only failures, resume
-  remaining work, controlled Stop of a detached child and subsequent resume;
-- Quit availability and complete fixture/config isolation.
+## Limite
 
-The opt-in real Homebrew smoke test also passed in a disposable prefix. It built
-and tested a small C formula, published a bottle, uninstalled it, then reinstalled
-and tested it from the pool with source builds disabled. A deterministic Cask
-was published, removed, its upstream archive hidden, and then installed again
-from the pool. The operator's normal Homebrew prefix and installed packages were
-not upgraded or modified.
-
-## Platform used
-
-- macOS 26.7.1 (build 25G241), Intel x86_64;
-- Python 3.14.8 for validation; runtime minimum remains Python 3.9;
-- Xcode/Apple Command Line Tools available for the Swift and formula builds.
-
-## Security and recovery properties checked
-
-- modifying maintenance commands and pool-aware repair use the same exclusive
-  Homebrew lock as upgrade/install jobs;
-- read-only diagnostics use a shared lock and do not overlap a writer;
-- command stdin is `/dev/null`; commands are launched only from explicit user
-  input and never inferred from logs;
-- destructive patterns require GUI confirmation;
-- a leading `sudo` uses macOS native administrator authorization; the app does
-  not receive or store the password;
-- Repair Pool State and queue cancellation preserve configuration, token, spool,
-  installed software and already completed bottle artifacts;
-- the signed application bundle does not self-modify; code fixes require a later
-  signed/notarized release.
-
-## Known limits
-
-- The exact 47-minute CMake and 31-minute coreutils production build was not
-  repeated. Its failure mode is covered by dependency-order and queue-recovery
-  regression fixtures plus the isolated real Formula/Cask pilots.
-- Validation used one physical Intel Mac, not every supported macOS release or a
-  multi-Mac production fleet.
-- NAS/TrueNAS deployment and WAN/VPN failure behavior were not rerun for 0.3.3;
-  the schema-1 server protocol was kept unchanged and covered by local tests.
-- The console deliberately has closed stdin and is not a general interactive
-  TTY. Normal stdout/stderr is live; administrator commands may be buffered by
-  the native macOS authorization bridge until completion.
-- Bottle reuse remains constrained by platform, prefix/Cellar, formula source,
-  options and dependency/ABI context.
-- Mutable Casks remain upstream-only, and ambiguous/dirty/divergent taps still
-  require explicit review.
-
-No GitHub repository, release, Actions workflow or CI resource was created or
-modified during this local release.
+- nu s-a executat Retry asupra cozii reale și nu s-au lansat upgrade/reinstall/link reale;
+- nu s-a modificat TrueNAS, config-ul, tokenul, spool-ul sau `job.json` real;
+- GitHub Actions/CI nu au fost folosite sau modificate; GitHub găzduiește numai
+  commitul, tag-ul și artefactele finale produse și validate local;
+- validarea fizică pe al doilea Mac rămâne un pas de instalare al operatorului.

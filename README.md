@@ -14,12 +14,9 @@ an inconvenience on one Mac; across a fleet of Intel Macs it wastes CPU time,
 energy, bandwidth, and often many minutes or hours by compiling the same software
 again on every machine.
 
-Homebrew Intel Bottle Pool turns every configured Intel Mac into an equal peer.
-Any Mac can authenticate, reuse an existing compatible artifact, or obtain/build
-a missing one locally, validate it, and publish it to the private central pool.
-The new artifact then becomes available to every other compatible Mac. The next
-artifact may be contributed by a different Mac, so work and reuse flow in both
-directions across the whole fleet.
+Homebrew Intel Bottle Pool lets one compatible Intel Mac build or obtain an
+artifact once, validate it, and publish it to a private central pool. Other
+compatible Macs can reuse that artifact instead of repeating the work.
 
 This project does **not** replace Homebrew and is **not affiliated with, endorsed
 by, or maintained by Homebrew**. It coordinates the normal Homebrew CLI and adds
@@ -28,51 +25,37 @@ a private reuse layer for trusted machines.
 ## How it works
 
 ```text
-┌─────────────────────┐   authenticate / fetch / publish   ┌──────────────────────┐
-│ Intel Mac 1         │ ⇄─────────────────────────────────⇄ │ Private bottle pool  │
-│ package A producer  │                                     │ NAS / server + disk  │
-└─────────────────────┘                                     │                      │
-┌─────────────────────┐   authenticate / fetch / publish   │ - manifests + blobs  │
-│ Intel Mac 2         │ ⇄─────────────────────────────────⇄ │ - SHA-256 validation │
-│ package A consumer  │                                     │ - leases + versions  │
-│ package B producer  │                                     │ - durable storage    │
-└─────────────────────┘                                     │                      │
-┌─────────────────────┐   authenticate / fetch / publish   │ No compilation here  │
-│ Intel Mac 3         │ ⇄─────────────────────────────────⇄ │                      │
-│ Cask/adapter update │                                     └──────────────────────┘
-└─────────────────────┘
-          ⋮                          ⇅
-┌─────────────────────┐   authenticate / fetch / publish
-│ Intel Mac N         │ ⇄─────────────────────────────────⇄
-│ any compatible work │
-└─────────────────────┘
+┌───────────────┐     authenticated HTTPS/VPN     ┌──────────────────────┐
+│ Intel Mac A   │ ─── lookup / publish ─────────▶ │ Private bottle pool  │
+│ build + test  │                                  │ NAS / server + disk  │
+└───────────────┘                                  └──────────┬───────────┘
+                                                              │ lookup
+┌───────────────┐                                             │
+│ Intel Mac B   │ ◀───────────────────────────────────────────┘
+│ verify + use  │
+└───────────────┘
 ```
 
-There are no permanent builder and consumer roles. Every configured Mac follows
-the same peer workflow:
-
-1. Authenticate to the private pool and describe the required compatibility
-   context.
-2. Look up the package, Cask download, or configured external adapter artifact.
-3. On a compatible hit, download, verify, and use it.
-4. On a miss, obtain the build lease when online, then acquire an official bottle
-   when suitable or compile locally, validate/test the result, and place it in the
-   durable local spool.
-5. Publish or sync the validated artifact to the pool. It immediately becomes a
-   candidate for every other compatible Mac.
-6. Repeat independently: Mac 2 may publish another formula, Mac 3 may refresh a
-   Cask or external adapter, and Mac N may contribute the next missing artifact.
-
-The central host authenticates peers, coordinates online leases, verifies and
-versions uploads, and stores or serves files. It never assigns a Mac a fixed role
-and never compiles Homebrew packages. Compilation stays on whichever Mac first
-needs and successfully claims the missing compatible artifact. If Macs are
-offline from the pool, more than one may build the same item; their durable local
-spools preserve the results until synchronization can resolve them safely.
+There are no permanent builder and consumer roles. Every configured Mac can look
+up compatible artifacts, publish newly validated artifacts, keep failed uploads
+in a local spool, and retry them later. The central host stores and serves files;
+Homebrew compilation stays on the Macs.
 
 The pool server can run on a NAS, TrueNAS system, Linux server, home server, or
 another always-on host with persistent storage and reliable connectivity. The
 backend uses Python's standard library and requires no third-party Python package.
+
+## Release 0.3.4
+
+Release 0.3.4 is a local hotfix for safe retry and Maintenance Console command
+execution. A current formula that must be rebuilt for bottling uses Homebrew's
+supported `install --build-bottle --force` path. The previous keg is atomically
+staged and restored on failure, and an already bottle-ready keg is not compiled
+again. Nested failures force only the package that actually failed. Maintenance
+Console now executes its positional command and returns the real child exit status.
+
+The schema-1 pool protocol, server configuration, tokens and spool format are
+unchanged. Updates and maintenance commands remain user-initiated.
 
 ## Release 0.3.3
 
@@ -253,37 +236,6 @@ reduce duplicate online builds. If the server is unavailable, complete results
 remain in a durable local spool and `brew-pool sync` can publish them later. An
 offline network partition can still cause two Macs to build the same artifact;
 the pool avoids losing either result and refuses ambiguous same-version bytes.
-
-### Old versions are replaced, not accumulated
-
-The active pool keeps **only the newest valid artifact in each compatibility
-slot**. A slot is the exact combination of artifact kind/name, platform, and
-compatibility variant. When a newer upgrade for that same slot is committed:
-
-1. the server verifies the complete new upload and its SHA-256;
-2. it stores the new blob durably;
-3. it atomically points the slot manifest to the new version;
-4. it deletes every older blob in that slot.
-
-This means repeated upgrades do not leave every historical version in the active
-pool consuming storage. Different macOS/prefix/ABI variants are different slots,
-so the newest artifact for each still remains available. A download already in
-progress can finish from its open file handle even when the old filename is
-removed; new lookups receive the new version.
-
-Local spool entries are also deleted after the server confirms that they were
-published, already existed, or were superseded by a newer version. Failed,
-offline, busy, or conflicting entries are retained for review so work is not
-lost. Incomplete temporary uploads and unreferenced blobs are cleaned during
-normal completion or server restart.
-
-Two boundaries are intentional:
-
-- NAS/ZFS snapshots and external backups may retain deleted historical blocks;
-  their space use follows the NAS retention policy, not the active pool.
-- The project does not run `brew cleanup` automatically on client Macs. Old
-  Homebrew kegs/download caches follow Homebrew's own policy and can be cleaned
-  separately after the operator confirms the upgrade works.
 
 The bearer token grants access to the whole private pool; this release does not
 implement per-artifact ACLs. SHA-256 protects integrity, not upstream authorship.

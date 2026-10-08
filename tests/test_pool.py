@@ -262,7 +262,9 @@ class FakeBrew(Brew):
     def sync_tap_for_build(self, info):
         self.verify_tap_formula(info)
 
-    def __init__(self, client, prefix="/custom/brew"):
+    def __init__(self, client, prefix=None):
+        self.fixture_filesystem = prefix is None
+        prefix = prefix or "/custom/brew"
         self.records = {"demo": {"name": "demo", "full_name": "demo", "tap": "homebrew/core",
                                 "versions": {"stable": "1.0"}, "revision": 0, "version_scheme": 0,
                                 "ruby_source_checksum": {"sha256": "a" * 64}, "installed": [],
@@ -301,6 +303,10 @@ class FakeBrew(Brew):
                     FakeBrew.builds += 1
                 time.sleep(self.build_delay)
             self.records[name]["installed"] = [{"version": "1.0", "used_options": []}]
+            if self.fixture_filesystem:
+                keg = self.client.state / "fixture-kegs" / name / "1.0"
+                keg.mkdir(parents=True, exist_ok=True)
+                (keg / "fixture-payload").write_text("installed")
             return ""
         if args[0] == "bottle":
             file = Path(cwd) / "demo--1.0.tahoe.bottle.1.tar.gz"
@@ -316,6 +322,18 @@ class FakeBrew(Brew):
         if args[0] == "outdated":
             return json.dumps({"formulae": [{"name": "demo", "pinned": False}], "casks": []})
         raise AssertionError("Unhandled fixture brew command: " + str(args))
+
+    def _stage_current_keg(self, info):
+        if not self.fixture_filesystem:
+            return super()._stage_current_keg(info)
+        keg = self.client.state / "fixture-kegs" / info["name"] / self.pkg_version(info)
+        if not keg.is_dir():
+            raise PoolError("Fixture keg is missing: " + str(keg))
+        backup = keg.parent / (keg.name + ".pool-backup-fixture")
+        os.replace(keg, backup)
+        return {"name": info["full_name"], "keg": keg, "backup": backup,
+                "linked_record": self.client.state / "fixture-linked" / info["name"],
+                "was_linked": False}
 
 
 class BrewTests(Fixture):

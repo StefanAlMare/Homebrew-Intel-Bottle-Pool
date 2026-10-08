@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.4 — 8 octombrie 2026
+
+- repară Retry Failed pentru formule curente cu forma Homebrew acceptată
+  `brew install --formula --build-bottle --force`, fără combinația invalidă
+  `brew reinstall --build-bottle`;
+- mută atomic keg-ul curent într-un backup pe același volum și îl restaurează la
+  orice eșec; backup-ul este eliminat numai după validarea artifactului;
+- sare peste recompilare când receipt-ul este deja `built_as_bottle`;
+- atribuie Retry exact pachetului nested eșuat, evitând recompilarea inutilă a
+  părintelui;
+- repară argumentul Maintenance Console și propagă stdout/stderr plus exit code-ul real;
+- adaugă regresii pentru keg curent, rollback, nested dependency, 10 pași
+  pending și comenzile controlate ale consolei.
+
 ## 0.3.3 — 7 octombrie 2026
 
 - Reconciliere backend-authoritative la cold launch, deschiderea meniului și la

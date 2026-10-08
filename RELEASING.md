@@ -60,7 +60,11 @@ HANDOVER files, and local logs are excluded.
 app source identity, signatures, Accepted receipts, staples, and Gatekeeper. It
 extracts the app ZIP, mounts the DMG read-only, compares both apps with the signed
 original, verifies the DMG Read Me/license/Applications shortcut, and compares every
-source ZIP file with Git. `--staging-only` skips notarization gates for local
+source ZIP file with Git. Apple's reserved Contents/CodeResources ticket file
+is allowed only after real stapler validation; arbitrary extra files remain
+forbidden. Each new build preserves the previous local bundle separately before
+copying its replacement, preventing stale tickets from a merged destination.
+`--staging-only` skips notarization gates for local
 inspection; it never authorizes publication.
 
 ## 5. Publish the final product once

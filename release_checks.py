@@ -30,6 +30,28 @@ def clean_commit():
     return run("git", "-C", str(ROOT), "rev-parse", "HEAD")
 
 
+def has_stapled_ticket(app):
+    # Apple stapler adds this reserved file outside the signed resource envelope.
+    # It is separate from Contents/_CodeSignature/CodeResources.
+    ticket = app / "Contents/CodeResources"
+    if not ticket.exists() and not ticket.is_symlink():
+        return False
+    if ticket.is_symlink() or not ticket.is_file():
+        raise SystemExit("Invalid or linked Apple notarization ticket")
+    return True
+
+
+def check_stapled_ticket(app):
+    if not has_stapled_ticket(app):
+        return False
+    try:
+        subprocess.run(["xcrun", "stapler", "validate", str(app)],
+                       check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as error:
+        raise SystemExit("Invalid Apple notarization ticket") from error
+    return True
+
+
 def check_bundle(app, require_release=False):
     resources = app / "Contents/Resources"
     receipt = json.loads((resources / "SourceManifest.json").read_text())
@@ -46,6 +68,8 @@ def check_bundle(app, require_release=False):
                        "Contents/Resources/HomebrewPool.icns", "Contents/Resources/SourceManifest.json",
                        "Contents/_CodeSignature/CodeResources"}
     expected_bundle |= {"Contents/Resources/client/" + path for path in expected}
+    if has_stapled_ticket(app):
+        expected_bundle.add("Contents/CodeResources")
     actual_bundle = {str(p.relative_to(app)) for p in app.rglob("*") if p.is_file()}
     if actual_bundle != expected_bundle:
         raise SystemExit("Unexpected or missing files in application bundle")
@@ -62,6 +86,7 @@ def check_bundle(app, require_release=False):
     if run("lipo", "-archs", str(app / "Contents/MacOS/HomebrewPoolMenu")) != "x86_64":
         raise SystemExit("Expected Intel x86_64 binary")
     subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
+    check_stapled_ticket(app)
     if require_release:
         signature = subprocess.run(["codesign", "-dv", "--verbose=4", str(app)], text=True, capture_output=True, check=True).stderr
         if "TeamIdentifier=YWVVK7QZ6X" not in signature or "runtime" not in signature or "Authority=Developer ID Application:" not in signature or "Timestamp=" not in signature:

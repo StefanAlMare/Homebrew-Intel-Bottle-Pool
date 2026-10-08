@@ -14,7 +14,7 @@ Aceste probleme au fost corectate, fără slăbirea verificărilor de producție
 
 ## Verificări finalizate
 
-Suita completă extinsă a trecut toate cele **157 de teste**, fără skip, cu bundle
+Suita completă extinsă a trecut toate cele **160 de teste**, fără skip, cu bundle
 local Intel 0.3.5, build 35. Include regresiile de publicare și notarizare, plus
 cele cinci verificări ale opririi publicării înainte de contactarea GitHub.
 Testele acoperă schema 1, server fixture loopback, lease/fencing,
@@ -86,6 +86,15 @@ Codul serverului, validarea protocolului și formatul job-urilor (`server.py`,
 `common.py`, `jobs.py`) sunt identice cu stable fee50c4; noile câmpuri de
 proveniență sunt metadata acceptate de schema 1. Compatibilitatea este verificată
 și prin serverul local real, fără schimbarea serviciului NAS.
+
+Formatul ticketului Apple a fost confirmat în citire pe backup-ul notarizat:
+`Contents/CodeResources` este un fișier regular separat de semnătură, iar
+stapler validate reușește. Verificatorul acceptă această singură adăugare numai
+cu ticket valid, după controalele surselor și semnăturii. Ticket fals și symlink
+sunt refuzate. La rebuild, produsul local anterior este păstrat separat înainte
+de copiere, evitând moștenirea unui ticket vechi prin comportamentul merge al ditto.
+Acest control nu certifică notarizarea noului bundle; acesta are nevoie de
+propriul Accepted și propriul ticket.
 
 ## Limite și producție
 

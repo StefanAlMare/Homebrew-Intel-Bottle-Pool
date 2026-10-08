@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -70,7 +71,57 @@ class MacApplicationTests(unittest.TestCase):
             shutil.copytree(app, copy)
             embedded = copy / "Contents/Resources/client/pool/brew.py"
             embedded.write_text(embedded.read_text() + "\n# modified\n")
-            with self.assertRaisesRegex(SystemExit, "Embedded source differs"):
+            (copy / "Contents/CodeResources").write_bytes(b"ticket fixture")
+            with patch("release_checks.check_stapled_ticket", side_effect=AssertionError("Check source before ticket")):
+                with self.assertRaisesRegex(SystemExit, "Embedded source differs"):
+                    check_bundle(copy)
+
+    def test_validated_apple_ticket_is_accepted_without_relaxing_signature_checks(self):
+        import shutil
+        from release_checks import check_bundle
+        app = ROOT / "dist/Homebrew Pool.app"
+        if not app.exists():
+            self.skipTest("Build the app first")
+        original = subprocess.run
+        calls = []
+        def run(argv, **kwargs):
+            if argv[:3] == ["xcrun", "stapler", "validate"]:
+                calls.append(argv)
+                return subprocess.CompletedProcess(argv, 0, "The validate action worked!", "")
+            return original(argv, **kwargs)
+        with tempfile.TemporaryDirectory() as temporary:
+            copy = Path(temporary) / "Homebrew Pool.app"
+            shutil.copytree(app, copy)
+            (copy / "Contents/CodeResources").write_bytes(b"fixture for Apple-validated ticket")
+            with patch("release_checks.subprocess.run", side_effect=run):
+                check_bundle(copy)
+            self.assertEqual(len(calls), 1)
+
+    def test_forged_apple_ticket_is_rejected(self):
+        import shutil
+        from release_checks import check_bundle
+        app = ROOT / "dist/Homebrew Pool.app"
+        if not app.exists():
+            self.skipTest("Build the app first")
+        with tempfile.TemporaryDirectory() as temporary:
+            copy = Path(temporary) / "Homebrew Pool.app"
+            shutil.copytree(app, copy)
+            (copy / "Contents/CodeResources").write_bytes(b"forged ticket")
+            with self.assertRaisesRegex(SystemExit, "Invalid Apple notarization ticket"):
+                check_bundle(copy)
+
+    def test_linked_apple_ticket_is_rejected(self):
+        import shutil
+        from release_checks import check_bundle
+        app = ROOT / "dist/Homebrew Pool.app"
+        if not app.exists():
+            self.skipTest("Build the app first")
+        with tempfile.TemporaryDirectory() as temporary:
+            copy = Path(temporary) / "Homebrew Pool.app"
+            shutil.copytree(app, copy)
+            (copy / "Contents/CodeResources").unlink(missing_ok=True)
+            (copy / "Contents/CodeResources").symlink_to(copy / "Contents/_CodeSignature/CodeResources")
+            with self.assertRaisesRegex(SystemExit, "Invalid or linked Apple notarization ticket"):
                 check_bundle(copy)
 
     def test_upgrade_is_only_bound_to_explicit_menu_action(self):

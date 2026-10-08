@@ -22,6 +22,8 @@
   identitatea payload-ului cask fără lansarea unei aplicații sintetice nesemnate;
 - automatizează folosirea profilului notarytool existent prin SSH autorizat,
   fără transferul credențialelor și cu verificarea arhivei înainte de trimitere;
+- permite ticketul Apple valid în bundle, refuză ticket fals/symlink și evită
+  moștenirea unui ticket vechi la regenerarea produsului local;
 - publicarea finală actualizează branch-ul implicit stable și release-ul v0.3.5;
   verifică artefactele descărcate înainte de marcarea release-ului ca public/latest.
 

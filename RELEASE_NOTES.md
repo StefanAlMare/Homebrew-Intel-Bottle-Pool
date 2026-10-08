@@ -76,12 +76,16 @@ Retry execută numai pașii failed; cei pending sunt executați prin Resume.
 - sunt corectate regresiile commitului inițial: verificările de siguranță ale
   tap-urilor cached, fixture-ul fără rețetă instalată și testul bundle-ului care
   mai aștepta build 34;
-- 157 de teste trecute, fără skip; regresii pentru proveniență, graf, publicare
+- 160 de teste trecute, fără skip; regresii pentru proveniență, graf, publicare
   concurentă, păstrarea spool-ului legacy, transportul notarizării și oprirea publicării înainte de verificări;
   rezultatele suitei complete sunt raportate în VALIDATION.md;
 - test funcțional al aplicației cu Retry/Resume/Stop și test Homebrew real
   într-un prefix temporar: build/bottle/pool/pour/test, plus cask reutilizat cu
   upstream ascuns și payload verificat prin SHA-256;
+- verificatorul permite fișierul rezervat al ticketului Apple numai după
+  validarea lui; ticket fals sau symlink este refuzat. Rebuild-ul păstrează
+  produsul anterior separat, astfel încât ticketul vechi să nu fie copiat în
+  aplicația nouă;
 - SourceManifest.json leagă bundle-ul semnat de commit și de inputurile reale;
   sursele din app, source ZIP și tag trebuie să corespundă;
 - introducere README refăcută, diagramă How it works nouă în PNG și SVG, plus

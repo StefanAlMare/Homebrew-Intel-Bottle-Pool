@@ -42,6 +42,11 @@ else
   codesign --force --sign - "$app"
 fi
 codesign --verify --deep --strict "$app"
+# ditto merges directories: preserve the old product first so a previous
+# notarization ticket cannot leak into a newly signed bundle.
+if [ -e "$dist_dir/Homebrew Pool.app" ] || [ -L "$dist_dir/Homebrew Pool.app" ]; then
+  mv "$dist_dir/Homebrew Pool.app" "$build_dir/previous-Homebrew Pool.app"
+fi
 ditto "$app" "$dist_dir/Homebrew Pool.app"
 
 if [ "$app_only" -eq 1 ]; then

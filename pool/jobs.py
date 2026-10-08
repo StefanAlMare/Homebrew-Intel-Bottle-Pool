@@ -1,6 +1,7 @@
 """Durable queue: an error is a boundary, retry never starts the next item."""
 import json
 import subprocess
+import time
 from pathlib import Path
 
 from .actions import ActionRequired
@@ -8,6 +9,36 @@ from .common import PoolError, atomic_json
 from .processes import JobStopped, check_stop
 
 RUN_MARKER = "HOMEBREW_POOL_RUN_STATE="
+
+
+class SafePauseRequested(Exception):
+    """The current safe unit finished; leave the durable queue at its checkpoint."""
+
+    def __init__(self, completed_package=""):
+        super().__init__("Safe pause requested")
+        self.completed_package = completed_package
+
+
+def pause_path(state):
+    return Path(state) / "pause-request.json"
+
+
+def pause_requested(state):
+    return pause_path(state).is_file()
+
+
+def request_pause(state):
+    marker = pause_path(state)
+    atomic_json(marker, {"schema": 1, "requested_at": int(time.time())})
+    return marker
+
+
+def clear_pause(state):
+    marker = pause_path(state)
+    try:
+        marker.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def step(kind, name="", **options):
@@ -26,6 +57,7 @@ class Job:
             raise PoolError("A saved job needs Retry, Resume, or Cancel before starting a new operation")
         self.data = dict(schema=1, command=command, status="running", steps=steps,
                          options=options, reviewed=False)
+        clear_pause(self.path.parent)
         self.save()
 
     @property
@@ -46,12 +78,16 @@ class Job:
                     command += ["--type", target["options"]["package_type"], target["name"]]
                     if target["options"]["mutable"]:
                         command += ["--allow-upstream-only-cask"]
-        return dict(schema=1, status=self.data["status"] if self.data else "idle",
+        state = self.data["status"] if self.data else "idle"
+        if state == "running" and pause_requested(self.path.parent):
+            state = "pause_requested"
+        return dict(schema=1, status=state,
                     failed_count=len(self.failures), remaining_count=len(self.remaining),
                     failures=[dict(name=s["name"] or s["kind"], kind=s["kind"], error=s.get("error", ""))
                               for s in self.failures],
                     current=self.data.get("current", "") if self.data else "",
-                    command=self.data.get("command", "") if self.data else "", resume_command=command)
+                    command=self.data.get("command", "") if self.data else "", resume_command=command,
+                    checkpoint=self.data.get("checkpoint") if self.data else None)
 
     def reconcile(self):
         """Normalize terminal records without discarding audit history or artifacts."""
@@ -70,6 +106,26 @@ class Job:
 
     def save(self):
         atomic_json(self.path, self.data)
+
+    def safely_pause(self, item=None, completed_package=""):
+        next_step = ""
+        if item is not None:
+            next_step = item.get("name") or item.get("kind", "")
+        elif self.remaining:
+            next_step = self.remaining[0].get("name") or self.remaining[0].get("kind", "")
+        self.data["status"] = "safely_paused"
+        self.data["active_package"] = ""
+        self.data["current"] = completed_package or next_step
+        self.data["checkpoint"] = {
+            "schema": 1,
+            "phase": "safe_boundary",
+            "completed_package": completed_package,
+            "next_step": next_step,
+            "publication": self.data.get("publication", {"state": "not-applicable"}),
+            "saved_at": int(time.time()),
+        }
+        self.save()
+        clear_pause(self.path.parent)
 
     def emit(self):
         print(RUN_MARKER + json.dumps(self.report(), sort_keys=True), flush=True)
@@ -103,7 +159,10 @@ class Job:
             if item["name"] in skipped and item["status"] in ("pending", "action", "failed"):
                 item["status"] = "skipped"
         selected = {"failed"} if mode == "retry" else {"pending", "action", "running"}
+        if self.data["status"] != "running":
+            clear_pause(self.path.parent)
         self.data["status"] = "running"
+        self.data.pop("checkpoint", None)
         self.save()
         try:
             # Discovery may insert package steps while this loop is running.
@@ -113,6 +172,9 @@ class Job:
                     self.save()
                 if item["status"] not in selected:
                     continue
+                if pause_requested(self.path.parent):
+                    self.safely_pause(item)
+                    return
                 check_stop()
                 self.data["current"] = item["name"] or item["kind"]
                 item["status"] = "running"
@@ -120,6 +182,10 @@ class Job:
                 try:
                     execute(item, self)
                     check_stop()
+                except SafePauseRequested as pause:
+                    item["status"] = "pending" if item["status"] == "running" else item["status"]
+                    self.safely_pause(item, pause.completed_package)
+                    return
                 except ActionRequired:
                     item["status"] = "action"
                     self.data["status"] = "action_required"
@@ -148,6 +214,9 @@ class Job:
                 item.pop("interrupted", None)
                 self.data["active_package"] = ""
                 self.save()
+                if pause_requested(self.path.parent):
+                    self.safely_pause(completed_package=item["name"] or item["kind"])
+                    return
             self.data["current"] = ""
             self.data["status"] = ("paused_error" if self.failures else
                                    "paused" if self.remaining else "completed")

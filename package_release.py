@@ -7,9 +7,10 @@ import tempfile
 from pathlib import Path
 from release_checks import ROOT, VERSION, check_bundle, clean_commit
 
-STEM = 'Homebrew-Intel-Bottle-Pool-v' + VERSION
+STEM = 'Homebrew-Intel-Bottle-Pool-v' + VERSION + '-standard'
 DOCUMENTS = ['README.md', 'INSTALLATION.md', 'QUICKSTART.txt', 'RELEASE_NOTES.md',
-             'VALIDATION.md', 'CHANGELOG.md', 'RELEASING.md']
+             'VALIDATION.md', 'CHANGELOG.md', 'RELEASING.md', 'SERVER_SETUP.md',
+             'USER_GUIDE.md', 'IMPORT_PROVENANCE.md', 'PARITY_REPORT.md']
 DIAGRAMS = ['how-it-works.png', 'how-it-works.svg']
 NOTARY = ['app-notarization.json', 'dmg-notarization.json',
           'app-notarization-log.json', 'dmg-notarization-log.json']
@@ -40,6 +41,7 @@ def verify_manifest(dist, notarized=True):
 
 
 def assemble(notarized=True):
+    raise SystemExit("Use local finalize-release.sh; Git-based packaging is disabled")
     commit = clean_commit()
     dist = ROOT / 'dist'
     app = dist / 'Homebrew Pool.app'

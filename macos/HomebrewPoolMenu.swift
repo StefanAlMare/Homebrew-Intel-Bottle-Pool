@@ -3,7 +3,7 @@ import Darwin
 import Foundation
 import UserNotifications
 
-private let agentLabel = "com.stefanalmare.homebrew-intel-bottle-pool"
+private let agentLabel = Bundle.main.bundleIdentifier ?? "com.stefanalmare.homebrew-intel-bottle-pool"
 
 private struct PoolStatus: Decodable {
     let connected: Bool
@@ -79,13 +79,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let errorsItem = NSMenuItem(title: "Review Errors…", action: #selector(reviewErrors), keyEquivalent: "e")
     private let retryItem = NSMenuItem(title: "Retry Failed…", action: #selector(retryFailed), keyEquivalent: "")
     private let resumeItem = NSMenuItem(title: "Resume…", action: #selector(resumeRun), keyEquivalent: "")
-    private let stopItem = NSMenuItem(title: "Stop", action: #selector(stopRun), keyEquivalent: ".")
+    private let pauseItem = NSMenuItem(title: "Pause Safely", action: #selector(pauseSafely), keyEquivalent: "p")
+    private let stopItem = NSMenuItem(title: "Stop Now", action: #selector(stopRun), keyEquivalent: ".")
     private let syncItem = NSMenuItem(title: "Sync now", action: #selector(syncNow), keyEquivalent: "s")
     private let upgradeItem = NSMenuItem(title: "Update & Upgrade", action: #selector(upgradeViaPool), keyEquivalent: "u")
     private let installItem = NSMenuItem(title: "Install…", action: #selector(openInstall), keyEquivalent: "i")
     private let repairDependencyItem = NSMenuItem(title: "Repair / Install Dependency…", action: #selector(repairDependency), keyEquivalent: "d")
     private let repairStateItem = NSMenuItem(title: "Repair Pool State…", action: #selector(repairPoolState), keyEquivalent: "")
     private let maintenanceItem = NSMenuItem(title: "Maintenance Console…", action: #selector(openMaintenanceConsole), keyEquivalent: "t")
+    private let scanImportsItem = NSMenuItem(title: "Scan Existing Bottles", action: #selector(scanExistingBottles), keyEquivalent: "")
+    private let reviewImportsItem = NSMenuItem(title: "Review Imports…", action: #selector(reviewImports), keyEquivalent: "")
+    private let importToPoolItem = NSMenuItem(title: "Import to Pool…", action: #selector(importToPool), keyEquivalent: "")
+    private let autoImportItem = NSMenuItem(title: "Auto-import verified bottles", action: #selector(toggleAutoImport), keyEquivalent: "")
+    private let captureFormulaItem = NSMenuItem(title: "Capture Installed Formula…", action: #selector(captureInstalledFormula), keyEquivalent: "")
+    private let compatibilityItem = NSMenuItem(title: "Compatibility Options…", action: #selector(reviewCompatibility), keyEquivalent: "")
     private let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
     private let loginItem = NSMenuItem(title: "Start at Login", action: #selector(toggleLogin), keyEquivalent: "")
     private var timer: Timer?
@@ -97,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var installWindow: NSWindow?
     private var maintenanceWindow: NSWindow?
     private var maintenanceProcess: Process?
+    private var pauseProcess: Process?
     private let maintenanceCommand = NSTextField()
     private let maintenanceOutput = NSTextView()
     private let maintenanceRunButton = NSButton(title: "Run", target: nil, action: nil)
@@ -106,7 +114,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var pendingAction: PendingAction?
     private var pendingRun: PendingRun?
     private var stopping = false
+    private var pauseRequested = false
     private var quitAfterStop = false
+    private var sleepActivity: NSObjectProtocol?
+    private var maintenanceSleepActivity: NSObjectProtocol?
+    private var activeQueueOperation = false
     private var activeGroups = Set<Int32>()
     private var busyTimer: Timer?
     private var busyFrame = false
@@ -161,7 +173,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var supportURL: URL {
         if let directory = uiSmokeDirectory ?? workflowSmokeDirectory { return URL(fileURLWithPath: directory).appendingPathComponent("support") }
-        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Homebrew Pool")
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Homebrew Pool")
     }
     private var runURL: URL { supportURL.appendingPathComponent("pending-run.json") }
 
@@ -175,6 +188,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         environment["HOMEBREW_NO_ASK"] = "1"
         environment["HOMEBREW_POOL_GUI"] = "1"
         environment["PYTHONUNBUFFERED"] = "1"
+        if let root = uiSmokeDirectory ?? workflowSmokeDirectory {
+            environment["HOMEBREW_POOL_TEST_ROOT"] = root
+        } else {
+            environment.removeValue(forKey: "HOMEBREW_POOL_TEST_ROOT")
+        }
         for (key, value) in extra { environment[key] = value }
         return environment
     }
@@ -183,7 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.accessory)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.imagePosition = .imageOnly
-        statusItem.button?.toolTip = "Homebrew Intel Bottle Pool"
+        statusItem.button?.toolTip = "Homebrew Pool 0.3.6 — standard upgrade"
         buildMenu()
         menu.autoenablesItems = false
         if uiSmokeDirectory == nil && workflowSmokeDirectory == nil {
@@ -217,7 +235,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         reviewItem.target = self
         reviewItem.isHidden = true
         menu.addItem(reviewItem)
-        for item in [errorsItem, retryItem, resumeItem, stopItem] {
+        for item in [errorsItem, retryItem, resumeItem, pauseItem, stopItem] {
             item.target = self
             item.isHidden = true
             menu.addItem(item)
@@ -236,6 +254,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         maintenanceItem.target = self
         menu.addItem(maintenanceItem)
         menu.addItem(.separator())
+        for item in [scanImportsItem, reviewImportsItem, importToPoolItem, captureFormulaItem, compatibilityItem, autoImportItem] {
+            item.target = self
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
 
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -249,6 +272,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         quit.target = self
         menu.addItem(quit)
         statusItem.menu = menu
+        refreshAutoImportState()
     }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -394,7 +418,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         stopping = false
         activeGroups.removeAll()
         activity = title
-        if command.first != "job" {
+        let tracksQueue = command.first == "upgrade" || command.first == "install"
+        activeQueueOperation = tracksQueue
+        if tracksQueue {
             let base = command.filter { $0 != "--resume" && $0 != "--retry-failed" }
             let state = pendingRun?.state ?? RunState(status: "running", failed_count: 0, remaining_count: 1,
                                                      failures: [], current: "", command: base.first ?? "")
@@ -404,7 +430,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setVisual(symbol: IconState.busy.symbol, title: title)
         busyTimer?.invalidate()
         busyTimer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: true) { [weak self] _ in
-            guard let self = self, self.activeProcess != nil, !self.stopping else { return }
+            guard let self = self, self.activeProcess != nil, !self.stopping, !self.pauseRequested else { return }
             self.busyFrame.toggle()
             self.setVisual(symbol: self.busyFrame ? "arrow.triangle.2.circlepath.circle.fill" : IconState.busy.symbol,
                            title: self.activity ?? "Busy")
@@ -440,11 +466,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 guard let self = self else { return }
                 let wasStopped = self.stopping || process.terminationStatus == 4
                 self.activeProcess = nil
+                self.activeQueueOperation = false
                 self.activity = nil
                 self.busyTimer?.invalidate()
                 self.busyTimer = nil
+                if let token = self.sleepActivity {
+                    ProcessInfo.processInfo.endActivity(token)
+                    self.sleepActivity = nil
+                }
                 self.activeGroups.removeAll()
                 self.stopping = false
+                self.pauseRequested = false
+                self.refreshAutoImportState()
                 if let state: RunState = self.decodeMarker("HOMEBREW_POOL_RUN_STATE=", from: commandOutput),
                    process.terminationStatus == 0 || process.terminationStatus == 4 || state.failed_count > 0 || state.remaining_count > 0 {
                     if state.failed_count == 0 && state.remaining_count == 0 && state.status != "action_required" {
@@ -463,14 +496,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 } else if process.terminationStatus == 2 && command.first == "sync" {
                     self.pendingRun = nil
                     try? FileManager.default.removeItem(at: self.runURL)
-                } else if process.terminationStatus != 0 {
+                } else if process.terminationStatus != 0 && tracksQueue {
                     let detail = String(data: commandOutput, encoding: .utf8) ?? "No output captured"
                     let state = RunState(status: "paused_error", failed_count: 1, remaining_count: 0,
                                          failures: [FailedItem(name: command.first ?? "command", kind: "command", error: String(detail.suffix(8000)))],
                                          current: "", command: command.first ?? "")
                     self.pendingRun = PendingRun(state: state, command: command, activity: title)
                     self.savePendingRun()
-                } else if command.first != "job" {
+                } else if tracksQueue {
                     self.pendingRun = nil
                     try? FileManager.default.removeItem(at: self.runURL)
                 }
@@ -481,21 +514,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 } else {
                     self.refreshStatus()
                     if self.workflowSmokeDirectory == nil && !wasStopped && process.terminationStatus != 0 && !(process.terminationStatus == 2 && command.first == "sync") {
-                        self.showAlert(title: "Paused — Error", message: "The operation stopped. Review Errors shows what failed. The remaining queue is saved.")
+                        if command.first == "imports" {
+                            self.showAlert(title: process.terminationStatus == 2 ? "Imports saved locally" : "Import not completed",
+                                           message: process.terminationStatus == 2 ? "Verified bottles are saved in the local spool. Use Sync now when the pool is available." : "Some candidates could not be imported. Review Imports and the log show the details.")
+                        } else {
+                            self.showAlert(title: "Paused — Error", message: "The operation stopped. Review Errors shows what failed. The remaining queue is saved.")
+                        }
                     }
                 }
                 self.updateRunMenu()
+                if command == ["imports", "scan"] && process.terminationStatus == 0 && self.workflowSmokeDirectory == nil {
+                    self.reviewImports()
+                }
                 if self.quitAfterStop {
                     self.quitAfterStop = false
                     NSApp.terminate(nil)
                 }
             }
         }
-        do { try process.run() }
+        do {
+            sleepActivity = ProcessInfo.processInfo.beginActivity(
+                options: [.userInitiated, .idleSystemSleepDisabled],
+                reason: "Homebrew Pool active operation")
+            try process.run()
+        }
         catch {
             activeProcess = nil
+            activeQueueOperation = false
             activity = nil
             busyTimer?.invalidate()
+            if let token = sleepActivity {
+                ProcessInfo.processInfo.endActivity(token)
+                sleepActivity = nil
+            }
             appendLog("\(error)\n")
             pendingRun?.state.status = "paused_error"
             pendingRun?.state.failed_count = 1
@@ -547,6 +598,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         retryItem.isEnabled = !busy && pendingAction == nil
         resumeItem.isHidden = remaining == 0
         resumeItem.isEnabled = !busy && pendingAction == nil && !(pendingRun?.command.isEmpty ?? true)
+        pauseItem.isHidden = !busy || !activeQueueOperation
+        pauseItem.isEnabled = busy && activeQueueOperation && !pauseRequested && !stopping && pauseProcess == nil
         stopItem.isHidden = !busy && pendingRun == nil
         stopItem.isEnabled = !stopping
         syncItem.isEnabled = !busy && pendingRun == nil && pendingAction == nil
@@ -555,6 +608,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         repairDependencyItem.isEnabled = !busy && maintenanceProcess == nil && settingsProcess == nil
         repairStateItem.isEnabled = !busy && maintenanceProcess == nil && settingsProcess == nil
         maintenanceItem.isEnabled = true
+        let importsEnabled = !busy && pendingRun == nil && pendingAction == nil && pauseProcess == nil && maintenanceProcess == nil && settingsProcess == nil
+        scanImportsItem.isEnabled = importsEnabled
+        reviewImportsItem.isEnabled = importsEnabled
+        importToPoolItem.isEnabled = importsEnabled
+        captureFormulaItem.isEnabled = importsEnabled
+        compatibilityItem.isEnabled = !busy && maintenanceProcess == nil && settingsProcess == nil
+        autoImportItem.isEnabled = !busy && pauseProcess == nil
         settingsItem.isEnabled = !busy && settingsProcess == nil
     }
 
@@ -562,6 +622,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let state = pendingRun?.state else { return }
         if state.failed_count > 0 {
             setVisual(symbol: IconState.error.symbol, title: "Paused — Error · \(state.failed_count) failed · \(state.remaining_count) remaining")
+        } else if state.status == "safely_paused" {
+            setVisual(symbol: IconState.stopped.symbol, title: "Safely Paused · \(state.remaining_count) remaining")
         } else {
             setVisual(symbol: IconState.stopped.symbol, title: "Paused/Stopped · \(state.remaining_count) remaining")
         }
@@ -610,6 +672,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         runInteractive(command: command, activity: "Busy/Resuming saved queue")
     }
 
+    @objc private func pauseSafely() {
+        guard activeProcess != nil, activeQueueOperation, pauseProcess == nil, !stopping else { return }
+        guard let (executable, arguments) = clientArguments(["job", "pause"]) else { return }
+        pauseRequested = true
+        setVisual(symbol: IconState.stopped.symbol, title: "Pause requested — finishing current formula")
+        appendLog("\n[pause] Safe pause requested; waiting for a committed checkpoint\n")
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        process.environment = normalizedEnvironment()
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = pipe
+        process.standardError = pipe
+        pauseProcess = process
+        process.terminationHandler = { [weak self] process in
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.pauseProcess = nil
+                if process.terminationStatus != 0 {
+                    self.pauseRequested = false
+                    let message = String(data: data, encoding: .utf8) ?? "Safe pause request failed"
+                    self.appendLog("[pause] \(message)\n")
+                    self.showAlert(title: "Pause request failed", message: message)
+                }
+                self.updateRunMenu()
+            }
+        }
+        do { try process.run() }
+        catch {
+            pauseProcess = nil
+            pauseRequested = false
+            showAlert(title: "Pause request failed", message: error.localizedDescription)
+        }
+        updateRunMenu()
+    }
+
     @objc private func stopRun() {
         guard let process = activeProcess else {
             pendingRun?.state.status = "stopped"
@@ -638,7 +738,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func refreshStatus() {
-        if let activity = activity {
+        if pauseRequested && activeProcess != nil {
+            setVisual(symbol: IconState.stopped.symbol, title: "Pause requested — finishing current formula")
+        } else if let activity = activity {
             setVisual(symbol: stopping ? IconState.stopped.symbol : IconState.busy.symbol,
                       title: stopping ? "Stopping… · queue retained" : activity)
         } else if pendingAction != nil {
@@ -654,6 +756,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func syncNow() {
         runInteractive(command: ["sync"], activity: "Busy/Syncing")
+    }
+
+    private func refreshAutoImportState() {
+        guard let data = try? Data(contentsOf: configURL),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            autoImportItem.state = .off
+            return
+        }
+        autoImportItem.state = (object["auto_import_verified_bottles"] as? Bool) == true ? .on : .off
+    }
+
+    @objc private func scanExistingBottles() {
+        runInteractive(command: ["imports", "scan"], activity: "Scanning existing bottles")
+    }
+
+    @objc private func reviewCompatibility() {
+        let alert = NSAlert()
+        alert.messageText = "Review compatibility options"
+        alert.informativeText = "Read-only review of CPU requirements and declared versioned formulae. No installation, rebuild, downgrade or branch change."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+        field.placeholderString = "Formula name, for example python"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Review")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        openMaintenanceConsole()
+        launchConsoleClient(["compatibility", name], display: "Compatibility options: " + name)
+    }
+
+    @objc private func captureInstalledFormula() {
+        let alert = NSAlert()
+        alert.messageText = "Capture an installed formula"
+        alert.informativeText = "Inspect checks the original receipt and recipe. Capture requires reviewed CPU/compiler provenance and performs a real isolated bottle install and test. It never rebuilds, changes the live keg, or publishes automatically."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+        field.placeholderString = "Formula name, for example node"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Inspect Only")
+        alert.addButton(withTitle: "Capture with Producer Proof…")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal()
+        let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        if response == .alertFirstButtonReturn {
+            openMaintenanceConsole()
+            launchConsoleClient(["capture", name, "--inspect"], display: "Inspect installed formula: " + name)
+        } else if response == .alertSecondButtonReturn {
+            let panel = NSOpenPanel()
+            panel.canChooseDirectories = false
+            panel.allowsMultipleSelection = false
+            panel.message = "Select the reviewed producer capture proof. Missing evidence leaves the formula at review."
+            guard panel.runModal() == .OK, let proof = panel.url else { return }
+            openMaintenanceConsole()
+            launchConsoleClient(["capture", name, "--provenance", proof.path], display: "Capture installed formula: " + name)
+        }
+    }
+
+    @objc private func reviewImports() {
+        openMaintenanceConsole()
+        launchConsoleClient(["imports", "review", "--text"], display: "Review existing bottle imports")
+    }
+
+    @objc private func importToPool() {
+        let alert = NSAlert()
+        alert.messageText = "Import verified bottles to the pool?"
+        alert.informativeText = "Only candidates classified as valid and importable are staged. Identical artifacts are skipped; conflicts and source-only installations remain for review."
+        alert.addButton(withTitle: "Import to Pool")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        runInteractive(command: ["imports", "import"], activity: "Importing verified bottles")
+    }
+
+    @objc private func toggleAutoImport() {
+        let enable = autoImportItem.state != .on
+        autoImportItem.state = enable ? .on : .off
+        runInteractive(command: ["imports", "auto", enable ? "on" : "off"],
+                       activity: enable ? "Enabling verified bottle imports" : "Disabling automatic imports")
     }
 
     private func decodeAction(from data: Data) -> PendingAction? {
@@ -717,6 +900,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func handleActionChoice(_ choice: String, action: PendingAction) {
+        if choice == "compatibility" {
+            openMaintenanceConsole()
+            launchConsoleClient(["compatibility", action.subject], display: "Compatibility options: " + action.subject)
+            return // Keep the decision and durable queue; do not retry automatically.
+        }
         guard var command = action.command else { clearPendingAction(); return }
         if choice == "cancel" {
             clearPendingActionWithoutRefresh()
@@ -1009,14 +1197,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 if let text = String(data: tail, encoding: .utf8), !text.isEmpty { self.appendMaintenanceOutput(text) }
                 self.appendMaintenanceOutput("\n[exit code \(process.terminationStatus)]\n")
                 self.maintenanceProcess = nil
+                if let token = self.maintenanceSleepActivity {
+                    ProcessInfo.processInfo.endActivity(token)
+                    self.maintenanceSleepActivity = nil
+                }
                 self.maintenanceRunButton.isEnabled = true
                 self.maintenanceStopButton.isEnabled = false
                 self.refreshStatus()
             }
         }
-        do { try process.run() }
+        do {
+            maintenanceSleepActivity = ProcessInfo.processInfo.beginActivity(
+                options: [.userInitiated, .idleSystemSleepDisabled], reason: "Homebrew Pool console operation")
+            try process.run()
+        }
         catch {
             maintenanceProcess = nil
+            if let token = maintenanceSleepActivity {
+                ProcessInfo.processInfo.endActivity(token)
+                maintenanceSleepActivity = nil
+            }
             maintenanceRunButton.isEnabled = true
             maintenanceStopButton.isEnabled = false
             appendMaintenanceOutput("\(error)\n[exit code -1]\n")
@@ -1111,11 +1311,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             try require(stopItem.isEnabled && !stopItem.isHidden, "Stop must be enabled while busy")
             try require(menu.items.first(where: { $0.title == "Quit" })?.isEnabled == true, "Quit must remain enabled")
             try require(!retryItem.isEnabled && !resumeItem.isEnabled, "Do not launch a second worker")
+            activeQueueOperation = true
+            updateRunMenu()
+            try require(pauseItem.isEnabled && !pauseItem.isHidden, "Safe pause must be available for a queue worker")
             activeProcess = nil
+            activeQueueOperation = false
+            pendingRun?.state.status = "safely_paused"
+            pendingRun?.state.failed_count = 0
+            pendingRun?.state.failures = []
+            showRunVisual()
+            try require(statusLine.title.contains("Safely Paused"), "Safe checkpoint state must be explicit")
+            try require(autoImportItem.state == .off, "Automatic imports must default off")
             pendingRun = nil
             let data = try JSONSerialization.data(withJSONObject: ["menu": titles, "config_written": false,
                 "icons": icons, "paused_error_persists": true, "stop_and_quit_while_busy": true,
-                "retry_resume_menu": true], options: .prettyPrinted)
+                "retry_resume_menu": true, "safe_pause_surface": true, "auto_import_defaults_off": true], options: .prettyPrinted)
             try data.write(to: root.appendingPathComponent("ui-smoke.json"))
             NSApp.terminate(nil)
         } catch {
@@ -1205,13 +1415,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 try FileManager.default.removeItem(at: root.appendingPathComponent("block"))
                 workflowPhase = 5
                 resumeRun()
-            default:
+            case 5:
                 guard activeProcess == nil else { return }
                 try require(pendingRun == nil, "Stop/Resume must finish")
+                try? FileManager.default.removeItem(at: root.appendingPathComponent("installed-alpha"))
+                try? FileManager.default.removeItem(at: root.appendingPathComponent("beta-visited"))
+                _ = FileManager.default.createFile(atPath: root.appendingPathComponent("safe-pause").path, contents: Data())
+                workflowPhase = 6
+                runInteractive(command: ["upgrade"], activity: "Busy/Fixture safe pause")
+            case 6:
+                guard FileManager.default.fileExists(atPath: root.appendingPathComponent("safe-install-ready").path) else { return }
+                try require(sleepActivity != nil && pauseItem.isEnabled, "Active formula must prevent sleep and allow safe pause")
+                workflowPhase = 7
+                pauseSafely()
+                try require(statusLine.title.contains("Pause requested"), "Safe pause request must be visible immediately")
+            case 7:
+                guard pauseProcess == nil else { return }
+                try require(pauseRequested, "Safe pause request failed")
+                _ = FileManager.default.createFile(atPath: root.appendingPathComponent("safe-install-release").path, contents: Data())
+                workflowPhase = 8
+            case 8:
+                guard activeProcess == nil else { return }
+                try require(pendingRun?.state.status == "safely_paused", "Worker must reach durable safe checkpoint")
+                try require(sleepActivity == nil, "Sleep prevention must be released at safe pause")
+                try require(!FileManager.default.fileExists(atPath: root.appendingPathComponent("beta-visited").path), "Next formula started after safe pause")
+                pendingRun = nil
+                restorePendingRun()
+                try require(pendingRun?.state.status == "safely_paused", "Reopening must restore safe pause")
+                workflowPhase = 9
+                resumeRun()
+            default:
+                guard activeProcess == nil else { return }
+                try require(pendingRun == nil, "Safe resume must finish saved queue")
                 let report: [String: Any] = ["pause_on_first_error": true, "sticky_failed_count": true,
                     "retry_only_failed": true, "resume_remaining": true, "stop_child_cleanup": true,
                     "stop_resume": true, "quit_while_busy": true, "isolated_configuration": true,
-                    "cold_launch_stale_ui_reconciled": true]
+                    "cold_launch_stale_ui_reconciled": true, "safe_pause_current_formula": true,
+                    "safe_pause_restored": true, "safe_resume": true, "active_sleep_prevention": true]
                 let data = try JSONSerialization.data(withJSONObject: report, options: .prettyPrinted)
                 try data.write(to: root.appendingPathComponent("workflow-smoke.json"))
                 workflowTimer?.invalidate()

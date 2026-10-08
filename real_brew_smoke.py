@@ -7,6 +7,7 @@ import plistlib
 import secrets
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import threading
@@ -43,8 +44,7 @@ def main():
         portable.parent.mkdir(parents=True, exist_ok=True)
         if portable.exists():
             raise RuntimeError("Unexpected tracked portable-ruby directory")
-        # Bootstrap updates must remain inside the disposable prefix too.
-        shutil.copytree(ruby.parent.parent.parent, portable, symlinks=True)
+        portable.symlink_to(ruby.parent.parent.parent, target_is_directory=True)
         (prefix / "bin").mkdir()
         executable = prefix / "bin" / "brew"
         executable.symlink_to(clone / "bin" / "brew")
@@ -111,8 +111,70 @@ end
                                "state_dir": str(root / name), "brew": str(executable)})
             name = "StefanAlMare/pool-smoke/pool-smoke"
             a = Brew(client("mac-a"))
-            a.install(name, kind="formula", update=False)
-            assert len(list(store.objects.glob("*/manifest.json"))) == 1
+            capture_only = "--capture-only" in sys.argv
+            if not capture_only:
+                a.install(name, kind="formula", update=False)
+                assert len(list(store.objects.glob("*/manifest.json"))) == 1
+            # Install directly through Homebrew, outside Pool, then recover it
+            # without recompiling. All mutations remain in this disposable prefix.
+            from pool.capture import FormulaCapture, IsolatedBrew, tree_hash
+            from unittest.mock import patch
+            from pool.common import atomic_json
+            if not capture_only:
+                subprocess.run([str(executable), "uninstall", "--ignore-dependencies", "--formula", name], env=env, check=True)
+            subprocess.run([str(executable), "trust", "--formula", name], env=env, check=True)
+            subprocess.run([str(executable), "install", "--formula", "--build-bottle", name], env=env, check=True)
+            capture = FormulaCapture(a.client, a)
+            evidence = capture.inspect(name)[1]
+            fields = ("formula", "version", "prefix", "cellar", "receipt_sha256",
+                      "recipe_sha256", "keg_tree_sha256", "context")
+            proof = {field: evidence[field] for field in fields}
+            proof.update(schema=1, reviewed=True, producer="local controlled C smoke formula",
+                         compiler_flags=[], required_cpu_features=sorted(a.host_cpu_features()))
+            proof_path = root / "capture-producer.json"
+            atomic_json(proof_path, proof)
+            guard = root / "outside-capture-sandbox-guard"
+            guard.write_text("unchanged")
+            original_prepare = IsolatedBrew.prepare
+            confinement = {}
+            def audited_prepare(isolated, records):
+                original_prepare(isolated, records)
+                # Opening WRONLY without truncation cannot change bytes, even
+                # if confinement were broken. Probe only this disposable file.
+                code = '''require "socket"
+begin
+  File.open(ARGV.fetch(0), File::WRONLY) {}
+  raise "External write unexpectedly allowed"
+rescue Errno::EPERM, Errno::EACCES
+end
+begin
+  Socket.tcp("127.0.0.1", ARGV.fetch(1).to_i, connect_timeout: 1) {}
+  raise "Network unexpectedly allowed"
+rescue Errno::EPERM, Errno::EACCES
+end
+puts "CONFINEMENT VERIFIED"
+'''
+                assert "CONFINEMENT VERIFIED" in isolated.run("ruby", "-e", code, "--", str(guard), str(server.server_port))
+                confinement.update(network_denied=True, external_write_denied=True)
+            with patch.object(IsolatedBrew, "prepare", audited_prepare):
+                recovered = capture.capture(name, proof_path)
+            assert guard.read_text() == "unchanged"
+            assert recovered["classification"] == "bottle_valid_importable", json.dumps(recovered)
+            assert recovered["validation"]["isolated_pour"] and recovered["validation"]["formula_test"]
+            assert tree_hash(evidence["keg"]) == evidence["keg_tree_sha256"]
+            assert len(list(store.objects.glob("*/manifest.json"))) == (0 if capture_only else 1), "Capture published automatically"
+            validation = Path(__file__).resolve().parent / "validation"
+            validation.mkdir(exist_ok=True)
+            atomic_json(validation / "real-capture-smoke.json", dict(
+                external_homebrew_build=True, no_rebuild_during_capture=True,
+                original_keg_unchanged=True, isolated_real_pour=True,
+                real_formula_test=True, real_linkage_test=True, auto_publish=False,
+                q9300_compatible=recovered["validation"]["q9300_compatible"],
+                sandbox_confinement=confinement,
+                scope="disposable prefixes, local Homebrew copy and loopback server only"))
+            print("REAL EXTERNAL KEG → CAPTURE → ISOLATED POUR → TEST PASSED")
+            if capture_only:
+                return
             # Uninstall ONLY the disposable formula in the verified temporary prefix.
             subprocess.run([str(executable), "uninstall", "--ignore-dependencies", "--formula", name], env=env, check=True)
             # Current Homebrew revokes formula trust on uninstall. Trust only our
@@ -132,7 +194,6 @@ end
             macos = fixture_app / "Contents/MacOS"
             macos.mkdir(parents=True)
             shutil.copy2(prefix / "bin/pool-smoke", macos / "pool-smoke")
-            fixture_binary_sha = hashlib.sha256((macos / "pool-smoke").read_bytes()).hexdigest()
             (fixture_app / "Contents/Info.plist").write_bytes(plistlib.dumps({
                 "CFBundleIdentifier": "com.stefanalmare.pool-smoke-fixture",
                 "CFBundleExecutable": "pool-smoke", "CFBundleName": "Pool Smoke",
@@ -173,10 +234,7 @@ end
             cask_archive.rename(root / "upstream-hidden.zip")
             d = Brew(client("cask-b"))
             d.install(cask_name, kind="cask", update=False)
-            # Verify exact payload identity. The program was already executed as
-            # a formula above; this unsigned synthetic app is not notarized and
-            # must not require disabling Gatekeeper to test cask transport.
-            assert hashlib.sha256(installed_app.read_bytes()).hexdigest() == fixture_binary_sha
+            assert subprocess.check_output([str(installed_app)], text=True).strip() == "pool-smoke-ok"
             assert len(list(store.objects.glob("*/manifest.json"))) == 2
             print("REAL INTEL CASK DOWNLOAD → POOL → INSTALL WITHOUT UPSTREAM PASSED")
         finally:

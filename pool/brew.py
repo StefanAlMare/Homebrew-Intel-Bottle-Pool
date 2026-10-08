@@ -14,7 +14,7 @@ from .actions import ActionRequired, classify_command_failure
 from .artifacts import compatible, obtain
 from .client import Lease, Unavailable, local_lock
 from .common import PoolError, atomic_json, canonical, digest, validate, version_order
-from .jobs import Job, step
+from .jobs import Job, SafePauseRequested, pause_requested, step
 from .preflight import Preflight, executable_candidate
 from .processes import JobStopped, check_stop, run_command
 
@@ -311,10 +311,31 @@ class Brew:
             shown.append("and " + str(len(differences) - 8) + " more")
         return ", ".join(shown) or "unspecified context difference"
 
-    def manifest(self, info, kind="brew-local-bottle", tag=None, expected_sha=None):
+    def host_cpu_features(self):
+        output = ""
+        for key in ("machdep.cpu.features", "machdep.cpu.leaf7_features"):
+            try:
+                output += " " + self.run_system("sysctl", "-n", key)
+            except (OSError, subprocess.CalledProcessError):
+                pass
+        from .imports import normalize_cpu_features
+        return normalize_cpu_features(output.split())
+
+    def manifest(self, info, kind="brew-local-bottle", tag=None, expected_sha=None,
+                 cpu_requirement=None):
         context = self.context(info)
+        if cpu_requirement is None and kind == "brew-local-bottle":
+            from .imports import homebrew_baseline_features, normalize_cpu_features
+            available = normalize_cpu_features(self.host_cpu_features())
+            if not homebrew_baseline_features(tag or self.tag) <= available:
+                if not {"SSE2", "SSE3", "SSSE3", "CX16"} <= available:
+                    raise PoolError("CPU capabilities are unknown or below the reviewed Core 2 build target")
+                cpu_requirement = "x86_64-v1"
+        cpu_identity = cpu_requirement or "homebrew-baseline"
+        if cpu_requirement:
+            context = dict(context, cpu_requirement=cpu_requirement)
         variant = hashlib.sha256(canonical({"prefix": self.prefix, "cellar": self.cellar,
-                                           "cpu": "homebrew-baseline", "options": [],
+                                           "cpu": cpu_identity, "options": [],
                                            "formula_sha256": context["formula_sha256"],
                                            "variant_identity": context["variant_identity"],
                                            "dependency_identity": context["dependency_identity"],
@@ -328,6 +349,8 @@ class Brew:
              "filename": info["name"] + "--" + self.pkg_version(info) + "." + (tag or self.tag) + ".bottle.tar.gz",
              "size": 1, "sha256": expected_sha or "0" * 64,
              "metadata": {"publisher": "StefanAlMare", "context": context, "bottle_rebuild": rebuild}}
+        if cpu_requirement == "x86_64-v1":
+            m["metadata"]["required_cpu_features"] = ["CX16", "SSE2", "SSE3", "SSSE3"]
         return validate(m)
 
     def official_bottle(self, info):
@@ -337,35 +360,74 @@ class Brew:
         candidates = [MAC_TAGS[n] for n in sorted(MAC_TAGS, reverse=True) if n <= self.major] + ["all"]
         for tag in candidates:
             entry = files.get(tag)
+            from .imports import homebrew_baseline_features, normalize_cpu_features
+            available = normalize_cpu_features(self.host_cpu_features())
+            if tag != "all" and not homebrew_baseline_features(tag) <= available:
+                continue
             if entry and entry.get("cellar") in (":any", ":any_skip_relocation", "any", "any_skip_relocation", self.cellar):
                 return tag, entry
         return None
 
     def consume_local(self, m, as_dependency=False):
-        local = self.client.local_match(m)
+        # App-built bottles use Homebrew's baseline. Imported local bottles are
+        # tried only when their conservative x86-64 requirement is supported.
+        expected = [m]
         try:
-            found = self.client.lookup(m)
-        except Unavailable:
-            found = None
+            from .imports import supported_cpu_levels
+            info = self.info(m["name"])
+            expected += [self.manifest(info, cpu_requirement=level)
+                         for level in reversed(supported_cpu_levels(self.host_cpu_features()))]
+        except (PoolError, OSError, ValueError, KeyError, subprocess.CalledProcessError):
+            pass
+        selected = None
+        local = None
+        found = None
+        from .imports import normalize_cpu_features
+        features = normalize_cpu_features(self.host_cpu_features())
+
+        def cpu_compatible(artifact):
+            if not artifact:
+                return False
+            if not artifact.get("metadata", {}).get("context", {}).get("cpu_requirement"):
+                from .imports import homebrew_baseline_features
+                tag = artifact["platform"].removeprefix("macos-x86_64-")
+                return tag == "all" or homebrew_baseline_features(tag) <= features
+            required = artifact.get("metadata", {}).get("required_cpu_features")
+            return (isinstance(required, list) and bool(required)
+                    and all(isinstance(x, str) for x in required)
+                    and normalize_cpu_features(required) <= features)
+
+        for candidate in expected:
+            local_candidate = self.client.local_match(candidate)
+            if local_candidate and not cpu_compatible(local_candidate[0]):
+                local_candidate = None
+            try:
+                found_candidate = self.client.lookup(candidate)
+            except Unavailable:
+                found_candidate = None
+            matching = found_candidate and (
+                found_candidate["version"] == candidate["version"]
+                and found_candidate["metadata"].get("context") == candidate["metadata"].get("context")
+                and len(found_candidate["version_order"]) == len(candidate["version_order"])
+                and found_candidate["version_order"][:-1] == candidate["version_order"][:-1]
+                and found_candidate["version_order"][-1] >= candidate["version_order"][-1]
+                and cpu_compatible(found_candidate)
+            )
+            if matching or local_candidate:
+                selected, found, local = candidate, found_candidate if matching else None, local_candidate
+                break
+        if selected is None:
+            return False
         with tempfile.TemporaryDirectory(prefix="pour-", dir=str(self.client.state)) as work:
             # A reviewed pool rebuild may be newer than the upstream bottle rank,
             # but formula version/revision, source and ABI must still match exactly.
-            matching = found and (
-                found["version"] == m["version"]
-                and found["metadata"].get("context") == m["metadata"].get("context")
-                and len(found["version_order"]) == len(m["version_order"])
-                and found["version_order"][:-1] == m["version_order"][:-1]
-                and found["version_order"][-1] >= m["version_order"][-1]
-            )
-            if matching:
+            if found:
                 path = Path(work) / found["filename"]
                 self.client.fetch(found, path)
             elif local:
                 path = Path(work) / local[0]["filename"]
                 shutil.copyfile(local[1], path)
-            else:
-                return False
-            print("Pool bottle: " + m["name"], flush=True)
+            print("Pool bottle: " + selected["name"], flush=True)
             # Bottle contains the original formula; Homebrew performs relocation/postinstall.
             self.pour(path, as_dependency)
             if not self.up_to_date(self.info(m["name"])):
@@ -398,8 +460,18 @@ class Brew:
                 self.seen.clear()
                 result = self._ensure(name, allow_build, as_dependency)
             if job:
+                installed = self.info(name)
+                publication = job.data.get("publication", {})
+                job.data.setdefault("formula_checkpoints", {})[installed["full_name"]] = {
+                    "version": self.pkg_version(installed),
+                    "recipe_sha256": self.installed_source_hash(installed),
+                    "context": self.context(installed),
+                    "publication": publication if publication.get("package") == installed["full_name"] else {"state": "installed-verified"},
+                }
                 job.data["active_package"] = previous
                 job.save()
+                if previous and pause_requested(self.client.state):
+                    raise SafePauseRequested(name)
             return result
         except (PoolError, JobStopped, OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
             if not isinstance(error, ActionRequired) and not getattr(error, "pool_failed_package", None):
@@ -508,10 +580,15 @@ class Brew:
             raise PoolError("Official bottle missing or checksum mismatch: " + info["full_name"])
         m.update(filename=cache.name, size=cache.stat().st_size)
         spool = self.client.enqueue(m, cache)
+        publication = "spooled"
         try:
-            self.client.publish_entry(spool)
+            publication = self.client.publish_entry(spool).get("status", "spooled")
         except Unavailable:
             pass
+        if getattr(self, "active_job", None):
+            self.active_job.data["publication"] = {"package": info["full_name"],
+                                                    "state": publication, "sha256": m["sha256"], "manifest": m}
+            self.active_job.save()
         rebuild = info.get("bottle", {}).get("stable", {}).get("rebuild", 0)
         filename = info["name"] + "--" + self.pkg_version(info) + "." + tag + ".bottle" + ("." + str(rebuild) if rebuild else "") + ".tar.gz"
         with tempfile.TemporaryDirectory(prefix="upstream-pour-", dir=str(self.client.state)) as work:
@@ -593,6 +670,9 @@ class Brew:
         self.sync_tap_for_build(info)
         fresh = self.info(name)
         fresh_context = self.context(fresh)
+        cpu_requirement = manifest["metadata"]["context"].get("cpu_requirement")
+        if cpu_requirement:
+            fresh_context = dict(fresh_context, cpu_requirement=cpu_requirement)
         if self.pkg_version(fresh) != manifest["version"] or fresh_context != manifest["metadata"]["context"]:
             raise BeforeBuildContextChanged("Formula/dependency context changed before build ("
                             + self.context_delta(manifest["metadata"]["context"], fresh_context)
@@ -623,6 +703,8 @@ class Brew:
         try:
             if not already_prepared:
                 install_args = ["install", "--formula", "--build-bottle"]
+                if manifest["metadata"]["context"].get("cpu_requirement") == "x86_64-v1":
+                    install_args.append("--bottle-arch=core2")
                 if current_retry:
                     staged = self._stage_current_keg(info)
                     install_args.append("--force")
@@ -665,6 +747,8 @@ class Brew:
                 after = self.info(name)
                 try:
                     after_context = self.context(after)
+                    if cpu_requirement:
+                        after_context = dict(after_context, cpu_requirement=cpu_requirement)
                 except DependencyNotCurrent as error:
                     raise DuringBuildContextChanged(str(error)) from error
                 if self.pkg_version(after) != manifest["version"] or after_context != manifest["metadata"]["context"]:
@@ -688,11 +772,17 @@ class Brew:
                 self.run("linkage", "--test", name, capture=False)
                 manifest["metadata"]["build_inputs"] = build_inputs
                 queued = self.client.enqueue(manifest, output)
+                publication = "spooled"
                 if lease and not lease.lost:
                     try:
-                        self.client.publish_entry(queued, lease)
+                        publication = self.client.publish_entry(queued, lease).get("status", "spooled")
                     except Unavailable:
                         pass
+                if getattr(self, "active_job", None):
+                    self.active_job.data["publication"] = {"package": name,
+                                                            "state": publication,
+                                                            "sha256": manifest["sha256"], "manifest": manifest}
+                    self.active_job.save()
                 validated = True
         finally:
             if staged:
@@ -867,6 +957,8 @@ class Brew:
 
     def _run_job(self, job, mode, skip=()):
         self.active_job = job
+        if mode == "resume":
+            self._revalidate_checkpoints(job)
         if mode == "retry":
             # A parent step can fail while building a nested dependency. Force
             # exactly the attributed package, not both dependency and parent.
@@ -877,6 +969,48 @@ class Brew:
         if job.data and job.data.get("active_package"):
             self.force_targets.add(job.data["active_package"])
         job.run(self._execute_step, "retry" if mode == "retry" else "resume", skip)
+
+    def _revalidate_checkpoints(self, job):
+        """Confirm installed kegs and server receipts before skipping completed work."""
+        invalid = set()
+        for name, checkpoint in (job.data or {}).get("formula_checkpoints", {}).items():
+            check_stop()
+            try:
+                info = self.info(name)
+                if (not self.up_to_date(info) or self.pkg_version(info) != checkpoint["version"]
+                        or self.installed_source_hash(info) != checkpoint["recipe_sha256"]
+                        or self.context(info) != checkpoint["context"]):
+                    invalid.add(name)
+                    continue
+                publication = checkpoint.get("publication", {})
+                manifest = publication.get("manifest")
+                if manifest:
+                    try:
+                        found = self.client.lookup(manifest)
+                    except Unavailable:
+                        found = None
+                        # Network loss does not invalidate a verified installed
+                        # keg; the durable spool will retry publication later.
+                        continue
+                    if found:
+                        if found.get("metadata", {}).get("context") != manifest["metadata"]["context"]:
+                            raise PoolError("Published checkpoint context changed; review " + name)
+                        if found["version_order"] == manifest["version_order"] and found["sha256"] != manifest["sha256"]:
+                            raise PoolError("Published checkpoint bytes changed; review " + name)
+                    elif not self.client.local_match(manifest):
+                        invalid.add(name)
+                        self.force_targets.add(name)
+            except (DependencyNotCurrent, FileNotFoundError):
+                invalid.add(name)
+        if invalid:
+            self.force_targets.update(invalid)
+            for item in job.data["steps"]:
+                if item["status"] == "done" and item["kind"] in ("formula", "install"):
+                    if item["name"] in invalid or any(x.endswith("/" + item["name"]) for x in invalid):
+                        item["status"] = "pending"
+            # Nested dependencies are rechecked by ensure before their parent.
+            self.seen.difference_update(invalid)
+            job.save()
 
     def _execute_step(self, item, job):
         kind, name = item["kind"], item["name"]

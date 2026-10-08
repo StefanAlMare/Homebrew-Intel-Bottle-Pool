@@ -15,6 +15,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .common import CHUNK, PoolError, atomic_json, canonical, digest, fsync_dir, key_for, validate
+from .isolation import require_private_path
 
 
 class Unavailable(PoolError):
@@ -29,6 +30,7 @@ class RemoteError(PoolError):
 
 class Client:
     def __init__(self, config):
+        require_private_path(config["state_dir"])
         self.config = config
         self.url = config["url"].rstrip("/")
         parsed = urlsplit(self.url)

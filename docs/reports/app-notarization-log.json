@@ -1,0 +1,25 @@
+{
+  "logFormatVersion": 1,
+  "jobId": "6dd0ca14-3dc1-4ac8-a5aa-eb6001f4b0ea",
+  "status": "Accepted",
+  "statusSummary": "Ready for distribution",
+  "statusCode": 0,
+  "archiveFilename": "submit.zip",
+  "uploadDate": "2026-10-08T16:44:02.482Z",
+  "sha256": "d10bdaa8c62555ae0e7499c9dbfed4dbbb7e9cd2da69602dc6ad33a474e8d6c4",
+  "ticketContents": [
+    {
+      "path": "submit.zip/Homebrew Pool.app",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "486800b657f764ffcb74ffcff1d308e7a97a1598",
+      "arch": "x86_64"
+    },
+    {
+      "path": "submit.zip/Homebrew Pool.app/Contents/MacOS/HomebrewPoolMenu",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "486800b657f764ffcb74ffcff1d308e7a97a1598",
+      "arch": "x86_64"
+    }
+  ],
+  "issues": null
+}

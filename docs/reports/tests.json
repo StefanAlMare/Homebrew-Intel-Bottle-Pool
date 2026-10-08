@@ -1,0 +1,7 @@
+{
+  "exit_code": 0,
+  "tests": 201,
+  "duration_seconds": 369.456,
+  "summary": "OK",
+  "scope": "local isolated fixtures"
+}

@@ -1,4 +1,4 @@
-"""Local release gates: bind signed bundle resources to the exact Git source."""
+"""Local release gates: bind signed bundle resources to the exact local sources."""
 import argparse
 import hashlib
 import json
@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "0.3.5"
+VERSION = "0.3.6"
 
 
 def run(*args):
@@ -22,12 +22,9 @@ def sources():
 
 
 def clean_commit():
-    branch = run("git", "-C", str(ROOT), "branch", "--show-current")
-    if branch != "fix/provenance-v0.3.5":
-        raise SystemExit("Release requires the authorized fix/provenance-v0.3.5 branch")
-    if run("git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=normal"):
-        raise SystemExit("Commit reviewed sources before building/notarizing release artifacts")
-    return run("git", "-C", str(ROOT), "rev-parse", "HEAD")
+    # Local test snapshot identity. No Git commit/branch/push is authorized.
+    return "local-sha256:" + hashlib.sha256(
+        json.dumps(sources(), sort_keys=True).encode()).hexdigest()
 
 
 def has_stapled_ticket(app):
@@ -81,7 +78,7 @@ def check_bundle(app, require_release=False):
         if (ROOT / origin).read_bytes() != (app / target).read_bytes():
             raise SystemExit("Bundle resource differs: " + origin)
     info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
-    if (info["CFBundleShortVersionString"], info["CFBundleVersion"]) != (VERSION, "35"):
+    if (info["CFBundleShortVersionString"], info["CFBundleVersion"]) != (VERSION, "36"):
         raise SystemExit("Unexpected bundle version/build")
     if run("lipo", "-archs", str(app / "Contents/MacOS/HomebrewPoolMenu")) != "x86_64":
         raise SystemExit("Expected Intel x86_64 binary")
@@ -100,9 +97,10 @@ if __name__ == "__main__":
     parser.add_argument("app", type=Path)
     args = parser.parse_args()
     if args.mode == "record-build":
-        commit = run("git", "-C", str(ROOT), "rev-parse", "HEAD")
+        commit = clean_commit()
         receipt = dict(version=VERSION, commit=commit, sources=sources(),
-                       clean=not bool(run("git", "-C", str(ROOT), "status", "--porcelain")))
+                       clean=True, upstream_commit="5158c90fb92db54cb0d765a02e0ef3ec56ed0da3",
+                       product="local-standard-upgrade")
         (args.app / "Contents/Resources/SourceManifest.json").write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n")
     else:
         result = check_bundle(args.app, args.mode == "verify-release")

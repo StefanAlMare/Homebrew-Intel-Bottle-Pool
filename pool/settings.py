@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .client import Client, RemoteError, Unavailable
 from .common import PoolError, atomic_json
+from .isolation import default_state_dir, require_private_path
 
 
 def check_connection(client):
@@ -30,6 +31,7 @@ def check_connection(client):
 
 def configure_gui(config_path, values, save=False):
     config_path = Path(config_path).expanduser()
+    require_private_path(config_path)
     existing = json.loads(config_path.read_text()) if config_path.exists() else {}
     token = values.get("token", "").strip()
     if not token:
@@ -46,11 +48,15 @@ def configure_gui(config_path, values, save=False):
     config.pop("ca_file", None)
     if ca:
         config["ca_file"] = str(Path(ca).expanduser().resolve())
-    config.setdefault("state_dir", str(Path.home() / "Library/Caches/IntelBottlePool"))
+    config.setdefault("state_dir", str(default_state_dir()))
+    require_private_path(config["state_dir"])
     config.setdefault("lock_wait_seconds", 600)
     config.setdefault("artifacts", [])
     # Tokens travel via stdin and a 0600 temporary file, never argv or logs.
-    with tempfile.TemporaryDirectory(prefix="pool-connection-") as temporary:
+    private_root = os.environ.get("HOMEBREW_POOL_TEST_ROOT")
+    if private_root:
+        Path(private_root).mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="pool-connection-", dir=private_root) as temporary:
         root = Path(temporary)
         temporary_token = root / "token"
         temporary_token.write_text(token + "\n")

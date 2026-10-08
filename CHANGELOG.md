@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.6 preview — October 8, 2026
+
+- Add persistent Safe Pause / Resume at a current-formula safe boundary, separate Stop Now and active sleep prevention.
+- Add existing bottle Scan / Review / Import, SHA-256/provenance/dependency/CPU validation, deduplication and atomic publication.
+- Keep auto-import OFF by default; run it only after complete error-free Install/Upgrade when explicitly enabled.
+- Add authentic-receipt, producer-proof capture using copied kegs, a genuine Homebrew sandbox and real isolated bottle/pour/test/linkage validation. No automatic publication or receipt patching.
+- Add read-only Compatibility Options and separately approved Core 2 alternatives; refuse SSE4.2/AVX artifacts on Q9300.
+- Preserve v0.3.5 commands, schema 1, dependency provenance, bounded recovery, Retry/Repair/Console and persistent queue.
+- Restore the standard DMG Applications shortcut and legacy settings/state paths without automatic installation or data reset.
+- Validate 201 local regression tests and 13 compiled-GUI workflow checks; publish exact reports and Apple receipts. Physical HP/MBP2012/Q9300 tests remain pending.
+- Refresh the English homepage, green PNG/SVG diagram, installation/user/server guides, release notes and validation/parity reports.
+- Publish locally built signed/notarized artifacts and full source only with separate authorization. No Actions, CI or remote builds. Keep preview status.
+
 ## 0.3.5 — October 8, 2026
 
 - Identify dependencies by the `.brew` recipe in the installed keg; API changes do not invalidate unchanged installed kegs.

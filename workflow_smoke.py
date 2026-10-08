@@ -33,14 +33,23 @@ elif args[0] == "info":
         try: time.sleep(60)
         except KeyboardInterrupt: p.wait(); sys.exit(0)
     installed=name == "beta" or (root/"installed-alpha").exists()
+    if installed:
+        recipe=root/"prefix/Cellar"/name/"2026-09-25/.brew"/(name+".rb")
+        recipe.parent.mkdir(parents=True,exist_ok=True); recipe.write_text("fixture "+name+" recipe")
     record={"name":name,"full_name":name,"tap":"homebrew/core","versions":{"stable":"2026-09-25"},
         "revision":0,"version_scheme":0,"ruby_source_checksum":{"sha256":"a"*64},
         "outdated":not installed,"installed":[{"version":"2026-09-25","used_options":[]}] if installed else [],
-        "bottle":{"stable":{"rebuild":0,"files":{"all":{"cellar":":any","sha256":hashlib.sha256(payload).hexdigest()}}}}}
+        "bottle":{"stable":{"rebuild":0,"files":{"tahoe":{"cellar":":any","sha256":hashlib.sha256(payload).hexdigest()}}}}}
     print(json.dumps({"formulae":[record]}))
 elif args[0] == "fetch":
     (root/"cache").mkdir(exist_ok=True); (root/"cache/alpha.bottle.tar.gz").write_bytes(payload)
-elif args[0] == "install": (root/"installed-alpha").touch()
+elif args[0] == "install":
+    if (root/"safe-pause").exists():
+        (root/"safe-install-ready").touch()
+        while not (root/"safe-install-release").exists(): time.sleep(0.02)
+    recipe=root/"prefix/Cellar/alpha/2026-09-25/.brew/alpha.rb"
+    recipe.parent.mkdir(parents=True,exist_ok=True); recipe.write_text("fixture alpha recipe")
+    (root/"installed-alpha").touch()
 elif args[0] in ("update","missing"): pass
 else: sys.exit("unhandled fixture command: "+repr(args))
 '''

@@ -1,0 +1,30 @@
+{
+  "logFormatVersion": 1,
+  "jobId": "4055b254-8fc2-4a67-960a-00179c12f6af",
+  "status": "Accepted",
+  "statusSummary": "Ready for distribution",
+  "statusCode": 0,
+  "archiveFilename": "Homebrew-Intel-Bottle-Pool-v0.3.6-standard.dmg",
+  "uploadDate": "2026-10-08T17:29:30.710Z",
+  "sha256": "49fdddce6942d3e30e314d5854ef6a700d54e238283b4dadc0dd1c872b24bdc3",
+  "ticketContents": [
+    {
+      "path": "Homebrew-Intel-Bottle-Pool-v0.3.6-standard.dmg/Homebrew Pool.app",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "486800b657f764ffcb74ffcff1d308e7a97a1598",
+      "arch": "x86_64"
+    },
+    {
+      "path": "Homebrew-Intel-Bottle-Pool-v0.3.6-standard.dmg/Homebrew Pool.app/Contents/MacOS/HomebrewPoolMenu",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "486800b657f764ffcb74ffcff1d308e7a97a1598",
+      "arch": "x86_64"
+    },
+    {
+      "path": "Homebrew-Intel-Bottle-Pool-v0.3.6-standard.dmg",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "5c02099a6bec6ddc38aa94063b3b779238830d84"
+    }
+  ],
+  "issues": null
+}

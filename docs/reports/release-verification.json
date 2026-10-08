@@ -1,0 +1,20 @@
+{
+  "app": "Notarized Developer ID / stapled / x86_64",
+  "embedded_client_matches_source": true,
+  "runtime_state_not_embedded": true,
+  "app-notarization.json": {
+    "status": "Accepted",
+    "id": "6dd0ca14-3dc1-4ac8-a5aa-eb6001f4b0ea",
+    "message": "Processing complete"
+  },
+  "dmg-notarization.json": {
+    "id": "4055b254-8fc2-4a67-960a-00179c12f6af",
+    "status": "Accepted",
+    "message": "Processing complete"
+  },
+  "ui_config_untouched": true,
+  "signature_after_ui_smoke": "Notarized Developer ID / stapled / x86_64",
+  "zip_app": "Notarized Developer ID / stapled / x86_64",
+  "dmg_gatekeeper": "Notarized Developer ID / accepted",
+  "dmg_app": "Notarized Developer ID / stapled / x86_64"
+}

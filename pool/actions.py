@@ -57,6 +57,11 @@ _RULES = (
 def classify_command_failure(output, subject=""):
     """Return an ActionRequired for recognizable interactive failures."""
     text = output or ""
+    if re.search(r"illegal instruction|(?:requires?|needs?|unsupported).{0,80}(?:SSE4[._]2|AVX|CPU instruction)|(?:SSE4[._]2|AVX).{0,80}(?:required|not supported)", text, re.I):
+        return ActionRequired("This formula needs CPU compatibility review. Safe alternatives are available.",
+            category="cpu_compatibility", subject=subject, detail=text,
+            choices=[{"id": "compatibility", "label": "Review Compatibility Options"},
+                     {"id": "skip", "label": "Skip This Item"}, {"id": "cancel", "label": "Cancel Run"}])
     for category, pattern, reason in _RULES:
         if pattern.search(text):
             return ActionRequired(reason, category=category, subject=subject, detail=text)

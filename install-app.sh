@@ -4,12 +4,12 @@ set -eu
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 applications_dir="$HOME/Applications"
 prefix="$HOME/.local"
-config="${XDG_CONFIG_HOME:-$HOME/.config}/intel-bottle-pool/config.json"
+config="$HOME/.config/intel-bottle-pool/config.json"
 url=""
 token_file=""
 ca_file=""
-login=1
-launch=1
+login=0
+launch=0
 
 usage() {
   echo "Usage: $0 [--url URL --token-file FILE [--ca-file FILE]] [--applications-dir DIR] [--prefix DIR] [--config FILE] [--no-login-item] [--no-launch]"
@@ -69,5 +69,5 @@ if [ "$login" -eq 1 ]; then
 fi
 
 if [ "$launch" -eq 1 ]; then open "$target_app"; fi
-echo "Installed Homebrew Pool 0.3.5 in: $target_app"
+echo "Installed Homebrew Pool 0.3.6 in: $target_app"
 echo "No automatic brew upgrade was scheduled. Use the menu command when you choose."

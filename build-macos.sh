@@ -42,8 +42,7 @@ else
   codesign --force --sign - "$app"
 fi
 codesign --verify --deep --strict "$app"
-# ditto merges directories: preserve the old product first so a previous
-# notarization ticket cannot leak into a newly signed bundle.
+# ditto merges: never carry the previous binary's Apple ticket forward.
 if [ -e "$dist_dir/Homebrew Pool.app" ] || [ -L "$dist_dir/Homebrew Pool.app" ]; then
   mv "$dist_dir/Homebrew Pool.app" "$build_dir/previous-Homebrew Pool.app"
 fi
@@ -54,18 +53,19 @@ if [ "$app_only" -eq 1 ]; then
   exit 0
 fi
 
-ditto -c -k --sequesterRsrc --keepParent "$app" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.5.zip"
+ditto -c -k --sequesterRsrc --keepParent "$app" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.6-standard.zip"
 
 dmg_root="$build_dir/dmg"
 mkdir -p "$dmg_root"
 ditto "$app" "$dmg_root/Homebrew Pool.app"
 ln -s /Applications "$dmg_root/Applications"
 cp "$project_dir/QUICKSTART.txt" "$dmg_root/Read Me.txt"
+cp "$project_dir/IMPORT_PROVENANCE.md" "$dmg_root/Import Verification.md"
 cp "$project_dir/LICENSE" "$dmg_root/License.txt"
-hdiutil create -quiet -volname "Homebrew Pool 0.3.5" -srcfolder "$dmg_root" \
-  -ov -format UDZO "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.5.dmg"
+hdiutil create -quiet -volname "Homebrew Pool 0.3.6" -srcfolder "$dmg_root" \
+  -ov -format UDZO "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.6-standard.dmg"
 if [ -n "${SIGNING_IDENTITY-}" ]; then
-  codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.5.dmg"
+  codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.6-standard.dmg"
 fi
 echo "Built: $app"
-echo "Built: $dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.5.dmg"
+echo "Built: $dist_dir/Homebrew-Intel-Bottle-Pool-v0.3.6-standard.dmg"

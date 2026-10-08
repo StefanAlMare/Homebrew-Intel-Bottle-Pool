@@ -20,7 +20,7 @@ class StateReconciliationTests(unittest.TestCase):
     def test_main_cli_reports_release_version(self):
         result = subprocess.run([sys.executable, str(ROOT / "entry.py"), "--version"],
                                 text=True, capture_output=True, check=True)
-        self.assertEqual(result.stdout.strip(), "Homebrew Intel Bottle Pool 0.3.5")
+        self.assertEqual(result.stdout.strip(), "Homebrew Intel Bottle Pool 0.3.6")
 
     def test_stale_stopped_cache_with_no_work_becomes_resolved(self):
         with tempfile.TemporaryDirectory() as temporary:

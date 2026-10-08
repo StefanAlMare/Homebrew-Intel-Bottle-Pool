@@ -1,96 +1,63 @@
-Homebrew Intel Bottle Pool 0.3.5 — Quick Start
+Homebrew Intel Bottle Pool 0.3.6 — STANDARD PREVIEW
+
+Home / guides
+  https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool
+  README.md, INSTALLATION.md, SERVER_SETUP.md, USER_GUIDE.md
+  This is the normal upgrade package, not the isolated .test edition.
+
+Install / Upgrade
+  1. Download standard DMG + SHA256SUMS.txt from v0.3.6.
+     Calculate its SHA-256; compare the full digest with its matching line.
+     A full -c check needs all listed assets downloaded.
+  2. Finish work and Quit before replacement. In v0.3.6 Pause Safely, wait for
+     Safely Paused, then Quit. Older apps without this control must finish.
+     Stop Now may discard internal compiler progress.
+  3. Open DMG. Drag Homebrew Pool.app onto Applications; Replace if intended.
+     Keep the previous binary for rollback.
+  4. Launch /Applications/Homebrew Pool.app, not the mounted DMG copy.
+  5. Existing config/token/custom state_dir/queue/spool are reused.
+     Do not delete job.json or reset state. Review, then Resume/Retry.
+  6. New users: private HTTPS URL, token/token file, CA only if needed;
+     Test Connection, then Save & Finish.
 
 Requirements
-  Intel x86_64 Mac, macOS 12+, Homebrew, and Python 3.9+.
-  Apple Command Line Tools are required for source builds.
+  Intel x86_64, macOS 12+ GUI, Homebrew, Python 3.9+; Command Line Tools to build.
+  Each formula's own OS/CPU support applies. No silent prerequisite installs.
 
-Install
-  1. Use final v0.3.5 release assets. Download every file listed in
-     SHA256SUMS.txt to run the complete checksum check.
-  2. Open the DMG and drag Homebrew Pool.app to Applications.
-  3. Launch it from Applications. Setup opens on a new Mac.
+Data
+  Config: ~/.config/intel-bottle-pool/config.json (XDG_CONFIG_HOME respected).
+  Existing state_dir retained; default new state ~/Library/Caches/IntelBottlePool.
+  UI: ~/Library/Application Support/Homebrew Pool
+  Logs: ~/Library/Logs/HomebrewIntelBottlePool
+  No user data embedded/reset/migrated by copying app. .test settings separate.
+  Do not run standard and .test apps concurrently on one Homebrew.
 
-Configure
-  Server URL: https://pool.example.internal
-  Token File: /run/secrets/pool.token
-  CA: optional private CA certificate
+Pause / Resume
+  Pause Safely persists a request and finishes current formula safely.
+  Wait during "Pause requested — finishing current formula".
+  "Safely Paused" means checkpoint saved; Resume rechecks after restart.
+  Stop Now is controlled cancellation, not a snapshot of make.
 
-  Choose Test Connection, then Save & Finish. A pasted token is copied to a
-  private 0600 file. Never commit a real URL, token, certificate, or config.
+Uploads / imports
+  App Install / Update & Upgrade automatically publish validated output.
+  Offline output stays in durable spool for Sync now.
+  Scan / Review / Import to Pool handles external existing bottles.
+  Auto-import verified bottles: OFF by default; ON adds import only after
+  complete error-free Install/Upgrade with no remaining work.
+  Capture creates a candidate, not automatic upload.
+  A source-installed keg alone is not a confirmed bottle.
 
-Use
-  Update & Upgrade  Run the coordinated Homebrew workflow.
-  Install…          Choose Auto, Formula, or Cask.
-  Sync now          Retry queued offline publications.
-  Repair Dependency Preserve a paused queue; update a dependency and validate it.
-  Repair Pool State Reconcile stale UI or explicitly discard pending work.
-  Maintenance       Run an explicit diagnostic/repair command and see live output.
-  Settings…         Change URL/token/CA settings.
-  Start at Login    Optional and controlled by the current user.
+Server / compatibility
+  Existing schema 1 server needs no reset/redeployment.
+  New server: SERVER_SETUP.md; persistent private storage, protected token,
+  one service owner, HTTPS/private connectivity. Never expose HTTP + token.
+  Q9300 lacks SSE4.2/AVX; incompatible bottles refused.
+  Compatibility Options offers reviewed alternatives, not silent downgrades.
+  Start at Login starts the agent, not package upgrades.
 
-States
-  Healthy           Connected; no queued work.
-  Busy              Building, installing, updating, or syncing.
-  Action Required   A safe choice needs user review.
-  Paused — Error    A technical error stopped the queue.
-  Paused/Stopped    Remaining work is saved for later.
+Status
+  Local builds/signing/notarization; no Actions/CI/remote builds.
+  Preview: physical HP / MacBook Pro 2012 / Q9300 tests pending.
 
-At an error, Review Errors shows the cause. Retry Failed retries only failures;
-Resume continues remaining work. Resolve/Skip explicitly acknowledges a failure,
-and Cancel Saved Queue abandons the remaining queue. Stop preserves resumable state.
-
-Upgrade an existing client
-  Quit the app before replacing it with the final 0.3.5 build. Keep your existing
-  config, token, spool, and job.json. No schema-1 server migration is required.
-  Installation does not automatically run a paused job. Retry Failed handles
-  failed steps; Resume handles the saved remainder.
-
-New in 0.3.5
-  Plan from declared platform dependencies, not the old keg's runtime graph.
-  Identify dependencies from installed recipe hashes. Pin local recipes during
-  source builds and avoid repeated tap fetches during that build.
-  Recover a changed context at most once per package per execution. Reuse proven
-  unchanged builds; safely rebuild when inputs change. Missing provenance or
-  repeated drift stops publication. Legacy kegs without proof may need a rebuild.
-
-Recovery example
-  If coreutils reports "Runtime dependency not current: openssl@3", choose
-  Repair / Install Dependency…, enter openssl@3, wait for exit code 0, then use
-  Retry Failed and Resume. The original queue is not replaced.
-
-Maintenance Console
-  Available in Healthy, Paused, Stopped, Action Required, Error, and Offline.
-  Shortcuts: brew doctor, brew outdated, brew missing, brew linkage --test.
-  Commands run only after Run is pressed. Modifying commands use the exclusive
-  Homebrew lock; destructive commands require confirmation. `sudo` uses the
-  native macOS authorization dialog. No password is collected by the app.
-
-Private server
-  Run the service on an always-on NAS, TrueNAS system, Linux/home server, or
-  equivalent host with persistent storage:
-
-  python3 -m pool.server \
-    --root /srv/homebrew-pool \
-    --bind 127.0.0.1 --port 8765 \
-    --token-file /run/secrets/pool.token
-
-  Put a private HTTPS reverse proxy or VPN in front of loopback, or bind only to
-  an appropriate protected-LAN interface with TLS configured. Never expose plain
-  HTTP plus the token directly to the Internet.
-
-Verify
-  With every listed release asset present: shasum -a 256 -c SHA256SUMS.txt
-  For a DMG-only download, calculate its SHA-256 and compare the full value with
-  its entry in SHA256SUMS.txt.
-
-Read README.md for architecture/security and VALIDATION.md for tested behavior
-and limitations. INSTALLATION.md contains the complete server and per-Mac setup.
-
-Created by StefanAlMare and developed together with ChatGPT by OpenAI.
-This project is independent and is not affiliated with Homebrew.
-
-0.3.5 publication recovery:
-  Target recipe hashes separate changed sources at the same version rank.
-  Local duplicate builds reuse only a verified winner with identical inputs.
-  Legacy Homebrew uploads are preserved in state_dir/spool/quarantine for review.
-  Official checksum mismatches still stop publication.
+Created by StefanAlMare, developed with ChatGPT by OpenAI.
+Independent of Homebrew. See License.txt; source-available, not MIT.

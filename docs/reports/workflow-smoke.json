@@ -1,0 +1,15 @@
+{
+  "sticky_failed_count": true,
+  "pause_on_first_error": true,
+  "isolated_configuration": true,
+  "safe_resume": true,
+  "quit_while_busy": true,
+  "retry_only_failed": true,
+  "stop_resume": true,
+  "active_sleep_prevention": true,
+  "safe_pause_current_formula": true,
+  "resume_remaining": true,
+  "safe_pause_restored": true,
+  "cold_launch_stale_ui_reconciled": true,
+  "stop_child_cleanup": true
+}

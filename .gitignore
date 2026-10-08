@@ -9,9 +9,6 @@ venv/
 build/
 dist/
 validation/
-HANDOVER.md
-verify_release.py
-finalize-release.sh
 *-notarization*.json
 release-verification*.json
 *.log

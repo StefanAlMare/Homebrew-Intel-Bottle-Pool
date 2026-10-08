@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920" role="img" aria-labelledby="title desc">
-<title id="title">Homebrew Intel Bottle Pool — How it works in 0.3.5</title>
-<desc id="desc">Compatible Intel Macs share a private bottle pool. Each client plans with declared dependencies and pinned recipes, checks for compatible bottles, builds only on a miss, validates the result, and stores it durably before upload. Context recovery is limited to one replan; only unchanged proven builds are reused without recompilation.</desc>
+<title id="title">Homebrew Intel Bottle Pool — How it works in 0.3.6</title>
+<desc id="desc">Compatible Intel Macs share a private pool through five verified workflow steps. Safe Pause finishes the current formula before a persistent checkpoint. Existing bottles require reviewed import evidence; source installations alone are not bottles. CPU compatibility is checked before reuse.</desc>
 <defs>
  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#1b8379"/></marker>
  <style>
@@ -21,7 +21,7 @@
 <text x="48" y="66" class="title">Build once. Reuse safely across Intel Macs.</text>
 <text x="48" y="102" class="subtitle">Homebrew Intel Bottle Pool · private sharing with verified compatibility</text>
 <rect x="1240" y="38" width="150" height="42" rx="21" fill="#173f39"/>
-<text x="1315" y="65" text-anchor="middle" class="pill">VERSION 0.3.5</text>
+<text x="1315" y="65" text-anchor="middle" class="pill">0.3.6 PREVIEW</text>
 <!-- Shared architecture: neither Mac has a fixed role. -->
 <rect x="48" y="152" width="350" height="224" rx="20" fill="#fff" stroke="#d6e3dc"/>
 <rect x="83" y="187" width="68" height="45" rx="5" fill="none" stroke="#1b8379" stroke-width="3"/>
@@ -49,7 +49,7 @@
 <path d="M907 244H1030" class="link"/>
 <path d="M1030 283H907" class="link"/>
 <text x="969" y="221" text-anchor="middle" class="small">HTTPS / VPN</text>
-<text x="720" y="415" text-anchor="middle" class="small">Reuse requires a matching macOS context, prefix, Cellar, formula and installed dependency identity.</text>
+<text x="720" y="415" text-anchor="middle" class="small">Reuse requires matching macOS, prefix, recipe, dependencies and CPU instructions — not just x86_64.</text>
 <text x="48" y="478" class="label">Inside each client</text>
 <text x="1390" y="478" text-anchor="end" class="small">Local work first · verified artifacts only</text>
 <!-- The five steps of the formula workflow. -->
@@ -75,7 +75,7 @@
 <text x="1164" y="620" class="body"><tspan x="1164">Save to the local spool</tspan><tspan x="1164" dy="29">Verify published winner</tspan><tspan x="1164" dy="29">Upload or reuse safely</tspan></text>
 <path d="M298 565H318" class="link"/><path d="M572 565H592" class="link"/><path d="M846 565H866" class="link"/><path d="M1120 565H1140" class="link"/>
 <rect x="48" y="766" width="1344" height="110" rx="18" fill="#e4eee5"/>
-<text x="74" y="802" class="label">Recovery in 0.3.5</text>
-<text x="74" y="838" class="body">At most one replan per package. Reuse proven unchanged builds; rebuild safely when inputs change.</text>
-<text x="74" y="864" class="small">Repeated drift stops publication. Preserve legacy uploads for review. Retry failures; Resume remaining steps.</text>
+<text x="74" y="802" class="label">New in 0.3.6 · pause safely, resume and import verified bottles</text>
+<text x="74" y="838" class="body">Pause request → finish current formula → save checkpoint → Safely Paused. Resume rechecks progress.</text>
+<text x="74" y="864" class="small">External bottles: Scan → Review → Import. Auto-import OFF by default. An installed keg alone is not a bottle.</text>
 </svg>

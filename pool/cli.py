@@ -11,15 +11,21 @@ from .brew import Brew
 from .client import Client, Unavailable, local_lock
 from .common import PoolError, atomic_json
 from .settings import check_connection, configure_gui
-from .jobs import Job
+from .jobs import Job, request_pause
 from .processes import JobStopped, install_stop_handlers
 from .maintenance import run_maintenance
+from .imports import BottleImporter
+from .isolation import default_state_dir, require_private_path, test_root
+from .capture import FormulaCapture
+from .compatibility import solutions, format_solutions
 
-VERSION = "0.3.5"
+VERSION = "0.3.6"
 
 
 def default_config():
-    return Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "intel-bottle-pool" / "config.json"
+    root = os.environ.get("HOMEBREW_POOL_TEST_ROOT")
+    fallback = Path(root) / "config" if root else Path.home() / ".config"
+    return Path(os.environ.get("XDG_CONFIG_HOME", str(fallback))) / "intel-bottle-pool" / "config.json"
 
 
 def main(argv=None):
@@ -30,14 +36,30 @@ def main(argv=None):
     setup = commands.add_parser("configure")
     setup.add_argument("--url", required=True)
     setup.add_argument("--token-file", required=True)
-    setup.add_argument("--state-dir", default=str(Path.home() / "Library" / "Caches" / "IntelBottlePool"))
+    setup.add_argument("--state-dir", default=str(default_state_dir()))
     setup.add_argument("--ca-file")
     setup.add_argument("--allow-insecure-http", action="store_true")
     status = commands.add_parser("status")
     status.add_argument("--json", action="store_true", help="Machine-readable status for the macOS agent")
     commands.add_parser("sync")
+    imports = commands.add_parser("imports", help="Scan, review, and import existing Homebrew bottles")
+    import_commands = imports.add_subparsers(dest="import_action", required=True)
+    import_commands.add_parser("scan")
+    import_review = import_commands.add_parser("review")
+    import_review.add_argument("--text", action="store_true")
+    import_run = import_commands.add_parser("import")
+    import_run.add_argument("identifier", nargs="*")
+    import_auto = import_commands.add_parser("auto")
+    import_auto.add_argument("state", choices=("on", "off"))
+    capture = commands.add_parser("capture", help="Inspect or safely bottle an existing keg without rebuilding")
+    capture.add_argument("name")
+    capture.add_argument("--provenance", help="Reviewed producer proof bound to exact keg bytes")
+    capture.add_argument("--inspect", action="store_true", help="Read-only inspection; never bottle or publish")
+    compatibility = commands.add_parser("compatibility", help="Read-only CPU and supported-version alternatives")
+    compatibility.add_argument("name")
+    compatibility.add_argument("--json", action="store_true")
     job_command = commands.add_parser("job", help="Review, resolve, or cancel the saved queue")
-    job_command.add_argument("action", choices=("review", "resolve", "cancel"))
+    job_command.add_argument("action", choices=("review", "resolve", "cancel", "pause"))
     repair = commands.add_parser("repair", help="Repair a dependency or reconcile pool state")
     repair_sub = repair.add_subparsers(dest="repair_action", required=True)
     repair_dependency = repair_sub.add_parser("dependency")
@@ -77,10 +99,11 @@ def main(argv=None):
     fetch.add_argument("--recipe", required=True)
     fetch.add_argument("destination")
     args = p.parse_args(argv)
-    if args.command in ("upgrade", "install", "sync", "refresh", "publish", "fetch", "repair", "maintenance"):
+    if args.command in ("upgrade", "install", "sync", "refresh", "publish", "fetch", "repair", "maintenance", "imports", "capture"):
         install_stop_handlers()
     try:
         config_path = Path(args.config).expanduser()
+        require_private_path(config_path)
         if args.command == "settings":
             print(json.dumps(configure_gui(config_path, json.load(sys.stdin), args.save)))
             return 0
@@ -119,11 +142,18 @@ def main(argv=None):
                 print(json.dumps(server) if connected else "Pool offline")
                 print("Spool entries: " + str(queued))
         elif args.command == "job":
-            with local_lock(client.state):
+            if args.action == "pause":
                 job = Job(client.state)
-                if args.action != "review":
-                    job.resolve(cancel=args.action == "cancel")
+                if not job.data or job.data.get("status") != "running":
+                    raise PoolError("No active operation can be paused safely")
+                request_pause(client.state)
                 job.emit()
+            else:
+                with local_lock(client.state):
+                    job = Job(client.state)
+                    if args.action != "review":
+                        job.resolve(cancel=args.action == "cancel")
+                    job.emit()
         elif args.command == "repair":
             if args.repair_action == "dependency":
                 with local_lock(client.state):
@@ -152,12 +182,59 @@ def main(argv=None):
                 return 1
             if any(x == "offline" or x.startswith("retained:") or x == "busy" for x in results):
                 return 2
+        elif args.command == "imports":
+            if args.import_action == "auto":
+                config["auto_import_verified_bottles"] = args.state == "on"
+                atomic_json(config_path, config)
+                config_path.chmod(0o600)
+                print(json.dumps({"auto_import_verified_bottles": config["auto_import_verified_bottles"]}))
+            else:
+                with local_lock(client.state):
+                    importer = BottleImporter(client, Brew(client))
+                    if args.import_action == "scan":
+                        report = importer.scan()
+                        result = importer.import_verified() if config.get("auto_import_verified_bottles") else report
+                    elif args.import_action == "review":
+                        result = importer.review()
+                    else:
+                        result = importer.import_verified(args.identifier)
+                    if args.import_action == "review" and args.text:
+                        print(importer.format_report(result))
+                    else:
+                        print(json.dumps(result, sort_keys=True))
+                    if isinstance(result, list) and any(x.get("status") == "rejected" for x in result):
+                        return 1
+                    if isinstance(result, list) and any(x.get("status", "").startswith("spooled") for x in result):
+                        return 2
+        elif args.command == "compatibility":
+            with local_lock(client.state):
+                report = solutions(Brew(client), args.name)
+                print(json.dumps(report, sort_keys=True) if args.json else format_solutions(report))
+        elif args.command == "capture":
+            with local_lock(client.state):
+                capturer = FormulaCapture(client, Brew(client))
+                result = capturer.inspect(args.name)[1] if args.inspect else capturer.capture(args.name, args.provenance)
+                print(json.dumps(result, sort_keys=True))
+                if not args.inspect and result["classification"] == "requires_review":
+                    return 3
         elif args.command == "upgrade":
-            Brew(client).upgrade(args.formula, not args.no_build, not args.no_update, not args.no_casks,
-                                 args.skip, "retry" if args.retry_failed else "resume" if args.resume else "start")
+            brew = Brew(client)
+            brew.upgrade(args.formula, not args.no_build, not args.no_update, not args.no_casks,
+                         args.skip, "retry" if args.retry_failed else "resume" if args.resume else "start")
+            completed = Job(client.state).report()
+            if config.get("auto_import_verified_bottles") and not completed["failed_count"] and not completed["remaining_count"]:
+                importer = BottleImporter(client, brew)
+                importer.scan()
+                print(json.dumps(importer.import_verified(), sort_keys=True))
         elif args.command == "install":
-            Brew(client).install(args.name, args.type, not args.no_build, not args.no_update,
-                                 args.allow_upstream_only_cask, "retry" if args.retry_failed else "resume" if args.resume else "start")
+            brew = Brew(client)
+            brew.install(args.name, args.type, not args.no_build, not args.no_update,
+                         args.allow_upstream_only_cask, "retry" if args.retry_failed else "resume" if args.resume else "start")
+            completed = Job(client.state).report()
+            if config.get("auto_import_verified_bottles") and not completed["failed_count"] and not completed["remaining_count"]:
+                importer = BottleImporter(client, brew)
+                importer.scan()
+                print(json.dumps(importer.import_verified(), sort_keys=True))
         elif args.command == "refresh":
             print(json.dumps(refresh(client, not args.no_build)))
         elif args.command == "publish":

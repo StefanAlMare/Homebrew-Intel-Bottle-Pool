@@ -1,4 +1,15 @@
-# Installation and deployment guide — 0.3.5
+# Installation and deployment guide
+
+[Home](README.md) · [Server setup](SERVER_SETUP.md) · [User guide](USER_GUIDE.md)
+
+Version 0.3.6 is a preview pending physical HP / MacBook Pro 2012 / Q9300 tests.
+
+For the additional v0.3.6 standard-upgrade package, follow QUICKSTART.txt:
+In v0.3.6: Pause Safely, wait for Safely Paused, Quit, then drag the app onto the
+DMG's Applications shortcut. An older version without safe pause must finish
+its current work before replacement. Keep the previous binary for rollback.
+Existing client settings and queue are reused; do not redeploy the server,
+recreate credentials or reset client state merely to upgrade the application.
 
 This guide covers the complete private deployment: one central server and every
 Intel Mac that will use it.
@@ -151,20 +162,19 @@ project. Verify them on each Mac before enrolling it.
 
 For each Mac:
 
-1. Download the final v0.3.5 release assets and `SHA256SUMS.txt` together.
-   The complete checksum check requires all files listed in the manifest.
-2. Verify the downloads:
+1. Download the DMG and `SHA256SUMS.txt` from the GitHub release.
+2. Verify the download:
 
    ```sh
-   shasum -a 256 -c SHA256SUMS.txt
+   shasum -a 256 Homebrew-Intel-Bottle-Pool-v0.3.6-standard.dmg
    ```
 
-   If you downloaded only the DMG, calculate its hash with
-   `shasum -a 256 Homebrew-Intel-Bottle-Pool-v0.3.5.dmg` and compare the full value
-   with that file's entry in `SHA256SUMS.txt`.
+   Compare the full digest with the matching line in SHA256SUMS.txt. Use a full
+   `-c` check only if all listed assets have been downloaded.
 
-3. Open the DMG and drag `Homebrew Pool.app` to Applications.
-4. Launch it from Applications. The first-run Setup window opens automatically.
+3. Open the DMG and drag `Homebrew Pool.app` onto its Applications shortcut.
+4. Launch from Applications, not the mounted DMG. New installs show Setup;
+   existing users keep their settings and must not reset config/queue/spool.
 5. Enter `https://pool.example.internal` in **Server URL**.
 6. Paste the private token or select its private file under **Token/Token File**.
 7. Select the private CA certificate only if the server uses one.
@@ -200,49 +210,25 @@ variants separate and will build again rather than force an unsafe bottle.
 Casks with fixed versions and SHA-256 values can be reused. Mutable `latest` or
 `no_check` Casks are upstream-only and are never published to the pool.
 
-## 12. Upgrade an existing client to 0.3.5
+## 12. Daily operation and recovery
 
-Install only final artifacts from the v0.3.5 release after checking their hashes.
-Quit Homebrew Pool, replace the app, and reopen it. Keep the existing private
-configuration, token file, state directory, spool, and `job.json`. The supplied
-installer preserves configuration and a recoverable previous app. Avoid deleting
-state to clear an error: Retry/Resume depends on that saved queue.
-
-No server migration is needed: the pool protocol and persistent queue remain
-schema 1. New dependency identities use separate variants, so older clients and
-bottles can coexist. A first new-variant build may be needed. A legacy bottle-ready
-keg without trustworthy build evidence may need a verified rebuild.
-
-0.3.5 plans from the declared platform graph, identifies installed dependency
-recipes, and pins local recipes during source builds. A real input change can
-trigger one safe automatic replan/rebuild. Proven unchanged completed builds can
-be reused; missing evidence, undeclared runtime dependencies, and repeated drift
-stop publication. Existing paused jobs are preserved and are not started merely
-by installing or launching the new app.
-
-## 13. Daily operation and recovery
-
-- **Healthy** means the server responds and the active local spool is empty; retained quarantine files are separate.
+- **Healthy** means the server responds and the local spool is empty.
 - **Busy** means a requested install, update, build, or sync is running.
 - **Action Required** means a safe automatic choice is not possible.
 - **Paused — Error** means processing stopped at a technical failure.
 - **Retry Failed** retries failures only; **Resume** continues remaining work.
-- **Stop** preserves the queue; **Sync now** retries offline publications.
-
-A successful **Retry Failed** does not execute the pending queue. If there are
-five or six remaining steps, they stay saved until **Resume**. Automatic context
-recovery remains inside the current package and has at most one replan per package
-per execution. A second context change stops rather than looping.
+- **Pause Safely** finishes the current formula and saves a checkpoint. Wait for
+  **Safely Paused** before quitting; **Resume** revalidates saved work.
+- **Stop Now** cancels the worker/children while preserving the queue, but cannot
+  preserve compiler-internal progress. **Sync now** retries offline publications.
+- App-managed Install/Upgrade publishes validated output automatically. Existing
+  external bottles use Scan/Review/Import. Auto-import is OFF by default and ON
+  only adds import after complete error-free work. Capture creates a candidate,
+  not an automatic upload. See USER_GUIDE.md for full operation.
 
 Review logs before skipping a failure. Do not grant automatic trust to unknown
 third-party taps. Back up the server data root, but never publish private pool
 manifests because their compatibility metadata may reveal local system details.
-
-Legacy Homebrew uploads without the complete 0.3.5 provenance markers are kept
-unchanged in `state_dir/spool/quarantine` for review. They no longer block active
-synchronization. Keep this directory when transferring or backing up state.
-A same-rank local build can reuse the pool winner only after exact input matching
-and a verified download; official bottle checksums are never substituted.
 
 ## Credits
 

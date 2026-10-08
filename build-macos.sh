@@ -30,6 +30,7 @@ swiftc -swift-version 5 -O -target x86_64-apple-macos12.0 \
   -framework AppKit -framework Foundation -framework UserNotifications \
   "$project_dir/macos/HomebrewPoolMenu.swift" \
   -o "$app/Contents/MacOS/HomebrewPoolMenu"
+python3 "$project_dir/release_checks.py" record-build "$app"
 if [ -n "${SIGNING_IDENTITY-}" ]; then
   xattr -cr "$app"
   if [ -n "${SIGNING_KEYCHAIN-}" ]; then

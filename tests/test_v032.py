@@ -172,6 +172,8 @@ class BrewPauseTests(Fixture):
     def test_retry_revalidates_dependency_whose_keg_was_installed_before_failure(self):
         mac = FakeBrew(self.clients[0])
         mac.records["dep"] = dict(copy.deepcopy(mac.records["demo"]), name="dep", full_name="dep")
+        import hashlib
+        mac.records["dep"]["ruby_source_checksum"]["sha256"] = hashlib.sha256(b"fixture recipe dep").hexdigest()
         original = mac.run
         def run(*args, **kwargs):
             if args[0] == "deps" and args[-1] == "demo":

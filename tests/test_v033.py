@@ -64,7 +64,7 @@ class DependencyRecoveryTests(Fixture):
         mac.run = run
         mac.ensure("demo")
         dependency_info = mac.calls.index(("info", "--json=v2", "--formula", "dep"))
-        self.assertGreater(dependency_info, mac.calls.index(("deps", "--topological", "--full-name", "demo")))
+        self.assertGreater(dependency_info, mac.calls.index(("deps", "--topological", "--full-name", "--os=tahoe", "demo")))
         self.assertEqual(mac.records["demo"]["installed"][0]["version"], "1.0")
 
     def test_dependency_repair_revalidates_without_replacing_paused_queue(self):

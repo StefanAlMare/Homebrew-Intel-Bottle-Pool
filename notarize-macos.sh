@@ -5,6 +5,8 @@ project_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 : "${NOTARY_PROFILE:?Set the existing notarytool Keychain profile name}"
 dist_dir="$project_dir/dist"
 app="$dist_dir/Homebrew Pool.app"
+python3 "$project_dir/release_checks.py" verify-release "$app"
+# The gate above binds the signed app to clean, committed source before submission.
 codesign --verify --deep --strict "$app"
 mkdir -p "$project_dir/build"
 stage=$(mktemp -d "$project_dir/build/notarize-XXXXXX")
@@ -48,5 +50,10 @@ cp "$project_dir/RELEASE_NOTES.md" "$dist_dir/RELEASE_NOTES.md"
 (cd "$dist_dir" && shasum -a 256 \
   Homebrew-Intel-Bottle-Pool-v0.3.5.dmg \
   Homebrew-Intel-Bottle-Pool-v0.3.5.zip \
-  Homebrew-Intel-Bottle-Pool-v0.3.5-source.zip > SHA256SUMS.txt)
-echo "App and DMG accepted, stapled and assessed."
+  Homebrew-Intel-Bottle-Pool-v0.3.5-source.zip \
+  VALIDATION.md QUICKSTART.txt RELEASE_NOTES.md \
+  app-notarization.json dmg-notarization.json \
+  app-notarization-log.json dmg-notarization-log.json > SHA256SUMS.txt)
+(cd "$dist_dir" && shasum -a 256 -c SHA256SUMS.txt)
+python3 "$project_dir/verify_distribution.py"
+echo "App and DMG accepted, stapled and assessed; containers and sources verified."

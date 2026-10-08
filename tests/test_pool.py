@@ -256,6 +256,22 @@ class FakeBrew(Brew):
     builds = 0
     build_guard = threading.Lock()
 
+    def installed_keg_identity(self, info):
+        if (Path(self.cellar) / info["name"] / self.pkg_version(info)).exists():
+            return super().installed_keg_identity(info)
+        return [0, 0]  # simulated filesystem only
+
+    def installed_source_hash(self, info):
+        if self.fixture_filesystem:
+            return self.records[info["name"]]["ruby_source_checksum"]["sha256"]
+        recipe = Path(self.cellar) / info["name"] / self.pkg_version(info) / ".brew" / (info["name"] + ".rb")
+        if not recipe.exists():
+            return self.records[info["name"]]["ruby_source_checksum"]["sha256"]
+        return super().installed_source_hash(info)
+
+    def snapshot_updated_taps(self):
+        self.calls.append(("fixture-snapshot-updated-taps",))
+
     def preflight(self):
         self.calls.append(("fixture-preflight",))
 
@@ -267,7 +283,7 @@ class FakeBrew(Brew):
         prefix = prefix or "/custom/brew"
         self.records = {"demo": {"name": "demo", "full_name": "demo", "tap": "homebrew/core",
                                 "versions": {"stable": "1.0"}, "revision": 0, "version_scheme": 0,
-                                "ruby_source_checksum": {"sha256": "a" * 64}, "installed": [],
+                                "ruby_source_checksum": {"sha256": hashlib.sha256(b"fixture recipe demo").hexdigest()}, "installed": [],
                                 "outdated": False, "bottle": {"stable": {"files": {}, "rebuild": 0}}}}
         self.calls = []
         self.custom_prefix = prefix
@@ -288,6 +304,12 @@ class FakeBrew(Brew):
             return "homebrew/core"
         if args[0] == "info":
             return json.dumps({"formulae": [copy.deepcopy(self.records[args[-1].split("/")[-1]])]})
+        if args[0] == "formula":
+            record = self.records[args[-1].split("/")[-1]]
+            path = self.client.state / "fixture-source" / (record["name"] + ".rb")
+            path.parent.mkdir(exist_ok=True)
+            path.write_text(record.get("_fixture_recipe", "fixture recipe " + record["name"]))
+            return str(path)
         if args[0] == "deps":
             return ""
         if args[0] in ("install", "reinstall"):
@@ -307,6 +329,8 @@ class FakeBrew(Brew):
                 keg = self.client.state / "fixture-kegs" / name / "1.0"
                 keg.mkdir(parents=True, exist_ok=True)
                 (keg / "fixture-payload").write_text("installed")
+                (keg / ".brew").mkdir(exist_ok=True)
+                (keg / ".brew" / (name.split("/")[-1] + ".rb")).write_text("fixture recipe " + name)
             return ""
         if args[0] == "bottle":
             file = Path(cwd) / "demo--1.0.tahoe.bottle.1.tar.gz"
@@ -317,7 +341,7 @@ class FakeBrew(Brew):
             if self.fail_test:
                 raise PoolError("simulated brew test failure")
             return ""
-        if args[0] in ("postinstall", "missing", "update"):
+        if args[0] in ("postinstall", "missing", "update", "linkage"):
             return ""
         if args[0] == "outdated":
             return json.dumps({"formulae": [{"name": "demo", "pinned": False}], "casks": []})
@@ -364,7 +388,8 @@ class BrewTests(Fixture):
         a = FakeBrew(self.clients[0])
         a.ensure("demo")
         b = FakeBrew(self.clients[1])
-        b.records["demo"]["ruby_source_checksum"]["sha256"] = "b" * 64
+        b.records["demo"]["_fixture_recipe"] = "changed target source"
+        b.records["demo"]["ruby_source_checksum"]["sha256"] = hashlib.sha256(b"changed target source").hexdigest()
         # Same rank, different source: build may succeed, publication must be reviewed.
         with self.assertRaises(RemoteError):
             b.ensure("demo")

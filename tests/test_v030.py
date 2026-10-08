@@ -248,6 +248,17 @@ class SafeTapTests(unittest.TestCase):
             self.sync()
         self.assertEqual((self.repo / "formula").read_text(), "local-during-build")
 
+    def test_update_snapshot_accepts_completed_fast_forward_without_another_fetch(self):
+        self.sync()
+        self.commit(self.writer, "updated-by-brew-update")
+        self.git("-C", str(self.writer), "push")
+        self.git("-C", str(self.repo), "pull", "--ff-only")
+        self.mac.snapshot_updated_taps()
+        with patch("pool.brew.Preflight.sync") as sync:
+            self.sync()
+        sync.assert_not_called()
+        self.assertEqual(self.mac.tap_heads["homebrew/core"], self.git("-C", str(self.repo), "rev-parse", "HEAD"))
+
     def test_dirty_detached_and_divergent_are_preserved(self):
         (self.repo / "untracked").write_text("keep")
         with self.assertRaisesRegex(PoolError, "modified"):

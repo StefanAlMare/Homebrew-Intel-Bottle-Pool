@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.5 — 8 octombrie 2026
+
+- identifică dependențele prin rețeta `.brew` a keg-ului instalat; schimbările API nu invalidează keg-uri neschimbate;
+- oprește publicarea când proveniența lipsește sau folosește symlink-uri;
+- separă explicit variantele noi de variantele legacy, păstrând protocolul schema 1;
+- elimină schimbarea implicită old-keg/new-keg a grafului prin selectarea explicită a rețetei pentru platformă;
+- fixează rețetele locale și HEAD-ul tap-ului pe durata build-ului;
+- reface planul cel mult o dată per pachet: rebuild sigur numai la schimbarea reală a intrărilor;
+- păstrează dovezi runtime/build/test pentru evitarea recompilării la Retry și verifică separat runtime/linkage;
+- păstrează verificările tap-ului local fără fetch repetat;
+- adaugă regresii pentru schema 1, Retry cu șase pași pending, proveniență și recuperare limitată;
+- corectează testul bundle-ului pentru build 35 și închide publicarea la diferențe între surse și bundle.
+
 ## 0.3.4 — 8 octombrie 2026
 
 - repară Retry Failed pentru formule curente cu forma Homebrew acceptată

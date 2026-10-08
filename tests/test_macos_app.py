@@ -47,10 +47,31 @@ class MacApplicationTests(unittest.TestCase):
             info = plistlib.load(stream)
         self.assertTrue(info["LSUIElement"])
         self.assertEqual(info["CFBundleShortVersionString"], "0.3.5")
-        self.assertEqual(info["CFBundleVersion"], "34")
+        self.assertEqual(info["CFBundleVersion"], "35")
         self.assertTrue((app / "Contents" / "Resources" / "client" / "pool" / "client.py").is_file())
         self.assertTrue((app / "Contents" / "Resources" / "HomebrewPool.icns").is_file())
         self.assertTrue((app / "Contents" / "MacOS" / "HomebrewPoolMenu").is_file())
+
+    def test_bundle_sources_match_build_receipt(self):
+        app = ROOT / "dist/Homebrew Pool.app"
+        if not app.exists():
+            self.skipTest("Build the app first")
+        from release_checks import check_bundle
+        check_bundle(app)
+
+    def test_tampered_embedded_source_is_rejected(self):
+        app = ROOT / "dist/Homebrew Pool.app"
+        if not app.exists():
+            self.skipTest("Build the app first")
+        import shutil
+        from release_checks import check_bundle
+        with tempfile.TemporaryDirectory() as temporary:
+            copy = Path(temporary) / "Homebrew Pool.app"
+            shutil.copytree(app, copy)
+            embedded = copy / "Contents/Resources/client/pool/brew.py"
+            embedded.write_text(embedded.read_text() + "\n# modified\n")
+            with self.assertRaisesRegex(SystemExit, "Embedded source differs"):
+                check_bundle(copy)
 
     def test_upgrade_is_only_bound_to_explicit_menu_action(self):
         source = (ROOT / "macos" / "HomebrewPoolMenu.swift").read_text()

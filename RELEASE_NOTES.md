@@ -1,47 +1,60 @@
-# Homebrew Intel Bottle Pool 0.3.4 — Release Notes
+# Homebrew Intel Bottle Pool 0.3.5 — Release Notes
 
-Data: 8 octombrie 2026.
+8 octombrie 2026. Intel x86_64, minimum macOS 12, build 35.
 
-## Hotfix Retry Failed
+## Proveniență și recuperare
 
-Pentru un keg deja instalat și curent care nu are receipt `built_as_bottle`,
-clientul nu mai apelează combinația invalidă `brew reinstall --build-bottle`.
-Folosește comanda acceptată de Homebrew:
+Blocajul analizat la gobject-introspection 1.86.0_4 apărea când identitatea unei
+rețete din API se schimba deși dependența instalată rămânea aceeași. Clientul
+folosește acum SHA-256 al fișierului `.brew/FORMULA.rb` din keg-ul curent.
+Schimbarea versiunii instalate sau a rețetei instalate schimbă varianta; o
+schimbare exclusiv API a dependenței nu o schimbă. Lipsa dovezii, citirea eșuată
+și rețetele/directoarele legate simbolic opresc publicarea cu diagnostic.
 
-`brew install --formula --build-bottle --force [--as-dependency] FORMULA`
+Planificarea folosește explicit graful declarat pentru platformă (`brew deps
+--os=TAG`), nu graful runtime al unui keg existent. Codul Homebrew local arată că
+fără această opțiune `deps` poate citi runtime_dependencies din receipt: înainte
+de upgrade este keg-ul vechi, după upgrade este keg-ul nou. Jurnalul harfbuzz
+14.5.1 → 14.6.0, cu brotli absent → 1.2.0, este compatibil cu acest mecanism;
+jurnalul singur nu exclude o modificare concurentă de rețetă.
 
-Înainte de comandă, keg-ul curent este mutat atomic într-un backup al aceluiași
-rack/volum. La orice eșec ulterior — build, `brew bottle`, postinstall, test,
-hash/manifest/context sau publicare — keg-ul nou este eliminat și cel original
-este restaurat, inclusiv starea linked. Backup-ul este șters numai după validarea
-completă și păstrarea bottle-ului în spool. Dacă receipt-ul este deja
-`built_as_bottle`, compilarea este omisă și se reiau doar bottle/test/validare.
-O cerere Stop oprește build-ul, dar nu întrerupe pașii bounded de unlink/link
-necesari restaurării keg-ului original.
+La un build sursă, instalarea și comenzile ulterioare folosesc rețetele locale
+sincronizate, cu instalarea din API dezactivată. HEAD-ul tap-ului este păstrat și
+verificat; un tap modificat sau schimbat concurent oprește execuția. Preflight și
+build-ul împart evidența sincronizării: fetch-ul nu se repetă în aceeași operație.
+Verificările locale de siguranță și de rețetă se repetă fără fetch.
 
-Retry folosește `failed_package` când eroarea aparține unei dependențe nested.
-Astfel, cazul `fastfetch` → `pkgconf` repară/revalidează `pkgconf` fără a forța o
-recompilare inutilă a lui `fastfetch`. Pașii pending rămân în `job.json` și se
-execută numai după Resume.
-Pentru cozi create de v0.3.3, care nu aveau încă `failed_package`, hotfix-ul
-recuperează strict numele din diagnosticul Homebrew salvat
-`Formula was not installed with --build-bottle` fără a modifica anticipat job-ul.
+Recuperarea este limitată la o singură refacere a planului per pachet/per execuție,
+cu graful recitit și lease nou. Înainte de compilare aceasta nu compilează nimic.
+După o schimbare reală în timpul build-ului, primul artifact este refuzat; se
+repară dependențele necesare și se permite un singur rebuild tranzacțional.
+O a doua schimbare oprește operația. Lipsa provenienței și dependențele runtime
+nedeclarate nu sunt ignorate sau acceptate automat. `brew linkage --test` verifică
+rezultatul înainte de enqueue/publicare.
 
-## Hotfix Maintenance Console
+Dovezile locale `build-proofs` păstrează contextul runtime, intrările build/test,
+hash-ul rețetei instalate și identitatea keg-ului imediat după compilare. Copia
+`.brew` este verificată prin transformarea exactă folosită de Homebrew pentru
+eliminarea blocului bottle, după verificarea checksum-ului sursei complete. Retry sare peste recompilare numai când dovada, rețeta
+instalată și toate intrările corespund planului curent. Un keg legacy fără această
+dovadă poate necesita un rebuild verificat; nu se pretinde că o compilare veche
+cu proveniență incompletă este sigură. Rollback-ul 0.3.4 este păstrat.
 
-Argumentul positional nu mai suprascrie subcomanda argparse `maintenance`.
-Backend-ul primește acum `maintenance_command`, execută exact șirul introdus,
-păstrează stdout/stderr live și returnează codul real al procesului. Interfața
-nu mai poate afișa `[exit code 0]` pentru o comandă care nu a fost lansată.
+## Compatibilitate
 
-Protecția comenzilor distructive, autorizarea administrator, locking-ul,
-stdin-ul închis și eliminarea secretului din mediu sunt neschimbate.
+Protocolul pool, spool-ul și job.json rămân schema 1. Nu este necesară o migrare
+pe server. Variantele 0.3.5 au un identificator distinct inclusiv pentru formule
+fără dependențe, evitând conflicte de rang cu artefactele legacy. Artefactele
+vechi nu sunt șterse, relabelate sau acceptate drept proveniență nouă. Prima
+construcție a unei variante noi poate fi necesară; clienții vechi își păstrează
+propriile variante. Configurația, tokenul și coada existentă sunt păstrate.
+Retry execută numai pașii failed; cei pending sunt executați prin Resume.
 
-## Compatibilitate și operare
+## Distribuție
 
-- bundle `0.3.4`, build `34`, Intel x86_64, minimum macOS 12;
-- protocolul pool/schema 1 este neschimbat și compatibil cu v0.3.3;
-- config-ul, tokenul, spool-ul și `job.json` existente sunt păstrate la instalare;
-- aplicația nu lansează automat upgrade-uri sau comenzi de mentenanță;
-- nu s-a modificat TrueNAS; build-ul, testele, semnarea și notarizarea au fost
-  executate local, iar GitHub este folosit numai pentru distribuirea release-ului final.
+Build-ul se produce local pe Intel macOS. Release-ul final necesită Developer ID
+Application, Team YWVVK7QZ6X, notarizare Accepted pentru app și DMG, stapling,
+Gatekeeper și verificarea conținutului ZIP/DMG față de sursele commitului.
+SHA256SUMS.txt acoperă artefactele și documentele distribuite. GitHub este folosit
+pentru distribuție; nu se folosesc GitHub Actions sau compilări găzduite.
+Consultați VALIDATION.md pentru verificările efectiv finalizate și limitări.

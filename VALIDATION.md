@@ -1,47 +1,58 @@
-# Validation — Homebrew Intel Bottle Pool 0.3.4
+# Validation — Homebrew Intel Bottle Pool 0.3.5
 
-Data validării: 8 octombrie 2026.
+8 octombrie 2026. Surse reparate și testate; publicarea este blocată la notarizare.
 
-## Build
+## Audit independent
 
-- aplicație `0.3.4`, build `34`, Intel `x86_64`, deployment target macOS 12;
-- build local cu Swift 6.3.3 pe macOS Intel;
-- semnare Developer ID Application, hardened runtime și Apple timestamp;
-- sursele incluse în bundle sunt comparate byte-for-byte cu sursele release.
+Commitul inițial 4c9c880: 120 teste, 3 failures, 1 error, 3 skipped (bundle absent).
+Verificarea tap-ului local fusese omisă la sincronizările cached (testul este
+redescoperit și prin importuri). Fixture-ul legacy nu furniza rețeta instalată
+pentru dependență. Testul bundle-ului aștepta încă build 34 în loc de build 35.
+Aceste probleme au fost corectate, fără slăbirea verificărilor de producție.
 
-## Teste automate
+## Verificări finalizate
 
-Toate cele **112 teste automate** au trecut. Suita verifică protocolul schema 1, spool/lease/fencing, formulae,
-Cask-uri, coada persistentă, Stop/Resume, preflight, Maintenance Console și
-aplicația macOS. Regresiile 0.3.4 acoperă explicit:
+Toate cele **140 de teste** au trecut, fără skip, cu bundle local Intel 0.3.5,
+build 35. Testele acoperă schema 1, server fixture loopback, lease/fencing,
+spool offline, Retry/Resume/Stop, rollback, installer în directoare temporare,
+proveniență, graf declarat, schimbări reale runtime/build/test și sursele bundle.
 
-- keg instalat/current fără `built_as_bottle`: numai `install --build-bottle
-  --force`, niciodată `reinstall --build-bottle`;
-- backup atomic și restaurarea payload-ului/linked state după un test eșuat;
-- o cerere Stop nu poate întrerupe rollback-ul bounded al keg-ului original;
-- receipt deja bottle-ready fără recompilare;
-- dependență nested atribuită lui `pkgconf`, fără forțarea părintelui;
-- migrarea țintei nested din eroarea legacy v0.3.3 fără `failed_package`;
-- două failed + 10 remaining păstrate în job-ul persistent;
-- output read-only, exit code 7 real și comandă mutativă controlată în fixture,
-  fără a atinge Homebrew-ul real.
+Regresiile noi verifică: API-only dependency changes cu identitate stabilă;
+rețetă/versiune instalată schimbată cu variantă nouă; dovezi lipsă/symlink refuzate;
+variante legacy separate și neconsumate; Retry cu șase și cinci pași pending;
+tranziția old-keg/new-keg fără recompilare falsă; drift real cu un singur rebuild;
+drift repetat oprit după două build-uri; reutilizare fără recompilare numai cu
+build proof valid; runtime nedeclarat refuzat; input build-only schimbat; tap-uri
+locale modificate/divergente refuzate; snapshot după update fără fetch suplimentar;
+transformarea exactă a blocului bottle și newline-uri păstrate; surse modificate
+în bundle respinse. Dovezile sunt legate de keg și invalidate la rollback.
 
-## Verificări release
+În citire, receipt-urile reale harfbuzz 14.5.1 și 14.6.0 confirmă brotli absent în
+primul și 1.2.0 în al doilea. Codul local Homebrew citește runtime_dependencies
+din keg când deps nu selectează explicit modul recipe. Normalizarea sursei reale
+harfbuzz din tap produce exact hash-ul copiei .brew instalate pentru 14.6.0.
+Aceste verificări nu au rulat comenzi Homebrew mutative.
 
-Apple Notary a acceptat ambele trimiteri:
+## Gate de distribuție
 
-- app: `ad506683-fc78-4041-baa8-3a8e9ea47f66`;
-- DMG: `59d0b2ed-6361-4b7b-8a9c-dd2dd37d3e78`.
+Build-ul final trebuie să provină dintr-un checkout curat pe branch-ul autorizat.
+SourceManifest.json este inclus în semnătură și leagă commitul de inputurile Swift,
+plist, icon și Python. Gate-ul verifică sursele byte-for-byte, fișierele exacte,
+x86_64, build 35, Developer ID Team YWVVK7QZ6X, runtime și timestamp.
+Containerele DMG/ZIP sunt comparate cu app-ul semnat; source ZIP este comparat cu
+fiecare fișier Git, iar SHA256SUMS.txt este verificat. Publicarea cere și Accepted,
+stapling și Gatekeeper pentru app/DMG, apoi descarcă release-ul pentru reverificare.
 
-Se verifică semnătura, certificatul/Team ID, arhitectura,
-stapling-ul, Gatekeeper, DMG-ul read-only, conținutul ZIP/DMG, installerul și
-absența configurației/tokenului din bundle. Identificatorii notarizării sunt
-păstrați în `dist/app-notarization.json` și `dist/dmg-notarization.json`.
+Profilul HomebrewPoolNotary nu există pe acest MacBook. Notarizarea, stapling-ul,
+Gatekeeper pentru distribuție și release-ul GitHub nu sunt confirmate. Nu se cer
+parole noi și nu se extrag parole din Keychain. Un bundle semnat sau checksum-uri
+corecte nu constituie confirmare de notarizare.
 
-## Limite
+## Limite și producție
 
-- nu s-a executat Retry asupra cozii reale și nu s-au lansat upgrade/reinstall/link reale;
-- nu s-a modificat TrueNAS, config-ul, tokenul, spool-ul sau `job.json` real;
-- GitHub Actions/CI nu au fost folosite sau modificate; GitHub găzduiește numai
-  commitul, tag-ul și artefactele finale produse și validate local;
-- validarea fizică pe al doilea Mac rămâne un pas de instalare al operatorului.
+Nu s-au executat operații Homebrew mutative sau Retry asupra cozii reale.
+Nu s-au modificat aplicația instalată, TrueNAS, configurația, tokenul sau spool-ul.
+Nu s-au declanșat GitHub Actions/CI; repository-ul raportează zero workflow-uri.
+Nu este efectuată validarea fizică pe al doilea Mac sau un nou build real al
+formulelor pe instalația utilizatorului. Variantele legacy nu sunt migrate;
+keg-urile fără dovadă completă pot necesita un rebuild verificat.

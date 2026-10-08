@@ -45,6 +45,29 @@ The pool server can run on a NAS, TrueNAS system, Linux server, home server, or
 another always-on host with persistent storage and reliable connectivity. The
 backend uses Python's standard library and requires no third-party Python package.
 
+## Release 0.3.5
+
+Dependency identity uses SHA-256 of the recipe in the installed current keg's
+`.brew` directory, rather than mutable API metadata. An API-only dependency
+recipe update no longer invalidates an unchanged installed dependency during a
+long build. Missing, unreadable, or linked recipe evidence stops publication.
+Dependency planning explicitly uses the platform's declared recipe graph, avoiding
+Homebrew's switch from old-keg runtime dependencies to new-keg runtime dependencies.
+Source builds use synchronized local recipes with API installation disabled.
+A context race refreshes the plan and lease at most once per package. A genuine
+change during compilation rejects the first artifact and permits one safe rebuild;
+repeated drift stops with a concise diagnostic. Installed runtime dependencies and
+linkage are checked separately before publication. Durable build proofs permit
+reuse only when runtime/build/test inputs and the installed target recipe match.
+Legacy bottle-ready kegs without this evidence can require one verified rebuild.
+
+Schema 1, configuration, tokens, spool, and `job.json` remain compatible. The new
+dependency identity has a separate variant namespace, including formulas with
+no dependencies. Older bottles remain available to older clients; 0.3.5 does
+not relabel or consume legacy local bottles. A first new-variant build may be
+needed. Retry handles only failed steps; Resume handles the preserved remainder.
+Tap fetches occur once per run, with local safety and formula checks repeated.
+
 ## Release 0.3.4
 
 Release 0.3.4 is a local hotfix for safe retry and Maintenance Console command
@@ -243,10 +266,9 @@ Only use the pool among machines and operators you trust.
 
 ## Validation and checksums
 
-Release 0.3.3 passed 104 automated tests, isolated real-Homebrew formula/Cask smoke
-tests, native GUI workflow checks, strict code-signature checks, Apple
-notarization, stapling, Gatekeeper assessment, and DMG verification. Details and
-known limitations are in [VALIDATION.md](VALIDATION.md).
+See [VALIDATION.md](VALIDATION.md) for the actual checks completed for 0.3.5,
+including limitations and the release gate. No notarization is implied by a
+source checkout or development build.
 
 Verify downloaded release assets:
 
@@ -255,7 +277,7 @@ shasum -a 256 -c SHA256SUMS.txt
 ```
 
 The checksum file in the release covers the public DMG, app ZIP, source ZIP,
-QUICKSTART, and VALIDATION assets.
+QUICKSTART, RELEASE_NOTES, and VALIDATION assets.
 
 ## Local development
 

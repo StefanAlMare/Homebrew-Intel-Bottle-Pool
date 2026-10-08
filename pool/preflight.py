@@ -180,13 +180,24 @@ class Preflight:
         self.sync(repo, "brew")
         taps = self.brew.package_lines(self.brew.run("tap"), taps=True)
         for tap in taps:
-            self.sync(Path(self.brew.run("--repository", tap)), tap)
+            tap_repo = Path(self.brew.run("--repository", tap))
+            self.sync(tap_repo, tap)
+            if hasattr(self.brew, "synced_taps"):
+                self.brew.synced_taps.add(tap)
+                if not hasattr(self.brew, "tap_heads"):
+                    self.brew.tap_heads = {}
+                self.brew.tap_heads[tap] = self.git(tap_repo, "rev-parse", "HEAD")
         for official in ("homebrew/core", "homebrew/cask"):
             if official not in taps:
                 # Some old checkouts exist without being listed by API mode.
                 path = repo / "Library/Taps/homebrew" / ("homebrew-" + official.split("/")[1])
                 if path.exists():
                     self.sync(path, official)
+                    if hasattr(self.brew, "synced_taps"):
+                        self.brew.synced_taps.add(official)
+                        if not hasattr(self.brew, "tap_heads"):
+                            self.brew.tap_heads = {}
+                        self.brew.tap_heads[official] = self.git(path, "rev-parse", "HEAD")
                 else:
                     print("Preflight: " + official + " uses API; no checkout created", flush=True)
         self.repair_launcher(repo)

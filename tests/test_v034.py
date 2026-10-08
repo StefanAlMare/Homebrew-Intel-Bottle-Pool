@@ -8,6 +8,8 @@ from pathlib import Path
 
 from pool.brew import Brew
 from pool.jobs import Job, step
+from pool.common import digest, PoolError, atomic_json, canonical
+import hashlib
 from pool.processes import STOP
 from test_pool import FakeBrew, Fixture
 
@@ -25,6 +27,11 @@ class CurrentKegBottleTests(Fixture):
         keg = prefix / "Cellar" / "demo" / "1.0"
         keg.mkdir(parents=True)
         (keg / "payload").write_text("original")
+        recipe = keg / ".brew/demo.rb"
+        recipe.parent.mkdir()
+        recipe.write_text("class Demo < Formula; end")
+        record["ruby_source_checksum"]["sha256"] = digest(recipe)
+        record["_fixture_recipe"] = recipe.read_text()
         linked = prefix / "var" / "homebrew" / "linked" / "demo"
         linked.parent.mkdir(parents=True)
         linked.symlink_to(keg)
@@ -47,6 +54,8 @@ class CurrentKegBottleTests(Fixture):
                 mac.calls.append(args)
                 keg.mkdir(parents=True)
                 (keg / "payload").write_text("replacement")
+                (keg / ".brew").mkdir()
+                (keg / ".brew/demo.rb").write_text("class Demo < Formula; end")
                 linked.unlink(missing_ok=True)
                 linked.symlink_to(keg)
                 record["installed"][0]["built_as_bottle"] = True
@@ -80,6 +89,7 @@ class CurrentKegBottleTests(Fixture):
         self.assertEqual((keg / "payload").read_text(), "original")
         self.assertTrue(linked.is_symlink())
         self.assertFalse(list(keg.parent.glob("*.pool-backup-*")))
+        self.assertFalse(list((mac.client.state / "build-proofs").glob("*.json")))
         self.assertFalse(list(self.clients[0].spool.glob("entry-*/manifest.json")))
         self.assertFalse(list(self.store.objects.glob("*/manifest.json")))
 
@@ -115,10 +125,21 @@ class CurrentKegBottleTests(Fixture):
         mac, record, _, _ = self._current_mac()
         record["installed"][0]["built_as_bottle"] = True
         info = mac.info("demo")
-        mac.build(info, mac.manifest(info), None, as_dependency=True)
+        manifest = mac.manifest(info)
+        proof_path = mac.client.state / "build-proofs" / (hashlib.sha256(canonical(["demo", "1.0"])).hexdigest() + ".json")
+        atomic_json(proof_path, {"inputs": {"runtime": manifest["metadata"]["context"], "build": {}, "installed_recipe_sha256": mac.planned_installed_recipe_hash(info)}, "keg": mac.installed_keg_identity(info)})
+        mac.build(info, manifest, None, as_dependency=True)
         self.assertFalse(any(call[0] in ("install", "reinstall") and "--build-bottle" in call
                              for call in mac.calls))
         self.assertTrue(any(call[0] == "bottle" for call in mac.calls))
+
+    def test_legacy_bottle_ready_keg_without_proof_requires_safe_rebuild(self):
+        mac, record, keg, _ = self._current_mac()
+        record["installed"][0]["built_as_bottle"] = True
+        info = mac.info("demo")
+        mac.build(info, mac.manifest(info), None)
+        self.assertEqual((keg / "payload").read_text(), "replacement")
+        self.assertTrue(any(call[0] == "install" and "--force" in call for call in mac.calls))
 
 
 class RetryAttributionTests(Fixture):

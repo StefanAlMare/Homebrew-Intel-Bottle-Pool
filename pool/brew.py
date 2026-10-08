@@ -13,12 +13,24 @@ from pathlib import Path
 from .actions import ActionRequired, classify_command_failure
 from .artifacts import compatible, obtain
 from .client import Lease, Unavailable, local_lock
-from .common import PoolError, canonical, digest, validate, version_order
+from .common import PoolError, atomic_json, canonical, digest, validate, version_order
 from .jobs import Job, step
 from .preflight import Preflight, executable_candidate
 from .processes import JobStopped, check_stop, run_command
 
 MAC_TAGS = {11: "big_sur", 12: "monterey", 13: "ventura", 14: "sonoma", 15: "sequoia", 26: "tahoe"}
+
+
+class BeforeBuildContextChanged(PoolError):
+    """No compiler or keg mutation has started; one fresh plan is safe."""
+
+
+class DependencyNotCurrent(PoolError):
+    """A fresh graph plan must install or upgrade this dependency."""
+
+
+class DuringBuildContextChanged(PoolError):
+    """Artifact rejected; a bounded fresh build plan may recover safely."""
 
 
 class Brew:
@@ -139,7 +151,17 @@ class Brew:
     def sync_tap_for_build(self, info):
         tap = info.get("tap") or "homebrew/core"
         if tap in self.synced_taps:
-            # Check checkout/API agreement again; never fetch the same tap twice in one run.
+            # Recheck local safety without another network fetch.
+            repo = Path(self.run("--repository", tap))
+            preflight = Preflight(self)
+            preflight.guard(repo, tap)
+            ahead, _ = map(int, preflight.git(
+                repo, "rev-list", "--left-right", "--count", "HEAD...@{upstream}").split())
+            if ahead:
+                preflight.unsafe(tap, "The checkout has local or divergent commits; they will be preserved.")
+            pinned = getattr(self, "tap_heads", {}).get(tap)
+            if pinned and preflight.git(repo, "rev-parse", "HEAD") != pinned:
+                raise PoolError("Tap checkout changed during this run; stop and start a fresh operation: " + tap)
             self.verify_tap_formula(info)
             return
         if tap not in self.package_lines(self.run("tap"), taps=True):
@@ -147,8 +169,26 @@ class Brew:
         repo = Path(self.run("--repository", tap))
         Preflight(self).sync(repo, tap)
         self.verify_tap_formula(info)
+        if not hasattr(self, "tap_heads"):
+            self.tap_heads = {}
+        self.tap_heads[tap] = Preflight(self).git(repo, "rev-parse", "HEAD")
         self.synced_taps.add(tap)
         print("Bottle tap synchronized: " + tap, flush=True)
+
+    def snapshot_updated_taps(self):
+        """brew update already fetched; pin its resulting clean checkouts without fetching again."""
+        preflight = Preflight(self)
+        heads = {}
+        taps = self.package_lines(self.run("tap"), taps=True)
+        for tap in taps:
+            repo = Path(self.run("--repository", tap))
+            preflight.guard(repo, tap)
+            ahead, _ = map(int, preflight.git(repo, "rev-list", "--left-right", "--count", "HEAD...@{upstream}").split())
+            if ahead:
+                preflight.unsafe(tap, "Updated tap has local or divergent commits; they will be preserved.")
+            heads[tap] = preflight.git(repo, "rev-parse", "HEAD")
+        self.synced_taps = set(taps)
+        self.tap_heads = heads
 
     def pour(self, path, as_dependency=False):
         if self.env.get("HOMEBREW_FORBID_PACKAGES_FROM_PATHS"):
@@ -181,22 +221,28 @@ class Brew:
     def up_to_date(self, info):
         return not info.get("outdated") and any(x["version"] == self.pkg_version(info) for x in info.get("installed", []))
 
+    def declared_dependencies(self, name, *flags):
+        # --os explicitly selects recipe mode. Without it Homebrew switches from
+        # an old keg's runtime graph to the new keg's graph during an upgrade.
+        return self.package_lines(self.run("deps", *flags, "--full-name", "--os=" + self.tag, name))
+
     def context(self, info):
         deps = {}
-        names = self.package_lines(self.run("deps", "--full-name", info["full_name"]))
+        names = self.declared_dependencies(info["full_name"])
         for name in names:
             dep = self.info(name)
             self.check_options(dep)
             if not self.up_to_date(dep):
-                raise PoolError("Runtime dependency not current: " + name)
+                raise DependencyNotCurrent("Runtime dependency not current: " + name)
             deps[dep["full_name"]] = {"version": self.pkg_version(dep), "source": self.installed_source_hash(dep)}
         return {"formula_sha256": self.source_hash(info), "dependencies": deps,
                 "dependency_identity": "installed-keg-brew-sha256-v1",
+                "dependency_graph": "declared-platform-v1",
                 "prefix": self.prefix, "cellar": self.cellar, "options": []}
 
     def source_hash(self, info):
         checksum = (info.get("ruby_source_checksum") or {}).get("sha256")
-        return checksum or hashlib.sha256(self.run("cat", info["full_name"]).encode()).hexdigest()
+        return checksum or digest(Path(self.run("formula", info["full_name"])))
 
     def installed_source_hash(self, info):
         """Hash the recipe embedded in the installed current keg, not today's API recipe.
@@ -208,19 +254,45 @@ class Brew:
         receipt = self._matching_install(info)
         if not receipt:
             raise PoolError("Installed dependency receipt missing: " + info["full_name"])
+        for component in (info["name"], receipt["version"]):
+            if not isinstance(component, str) or component in (".", "..") or not component or "/" in component:
+                raise PoolError("Unsafe installed dependency path: " + info["full_name"])
         recipe = Path(self.cellar) / info["name"] / receipt["version"] / ".brew" / (info["name"] + ".rb")
+        if any(parent.is_symlink() for parent in (recipe.parent, recipe.parent.parent, recipe.parent.parent.parent)):
+            raise PoolError("Installed dependency recipe has linked ancestry: " + str(recipe))
         if recipe.is_symlink() or not recipe.is_file():
             raise PoolError("Installed dependency recipe missing or linked: " + str(recipe))
         try:
             recipe.resolve(strict=True).relative_to(Path(self.cellar).resolve(strict=True))
         except (OSError, ValueError, RuntimeError) as error:
             raise PoolError("Installed dependency recipe is outside Homebrew Cellar: " + str(recipe)) from error
-        return digest(recipe)
+        try:
+            return digest(recipe)
+        except OSError as error:
+            raise PoolError("Cannot read installed dependency recipe; preserve the keg and repair its provenance: " + str(recipe)) from error
+
+    def installed_keg_identity(self, info):
+        keg = Path(self.cellar) / info["name"] / self.pkg_version(info)
+        stat = keg.stat()
+        return [stat.st_dev, stat.st_ino]
+
+    def planned_installed_recipe_hash(self, info):
+        # Homebrew stores formula.path.read with the bottle stanza removed.
+        # Mirror that exact transformation, checking the full source first.
+        source_path = Path(self.run("formula", info["full_name"]))
+        try:
+            source = source_path.read_bytes()
+        except OSError as error:
+            raise PoolError("Cannot read pinned build recipe: " + str(source_path)) from error
+        if hashlib.sha256(source).hexdigest() != self.source_hash(info):
+            raise PoolError("Local recipe bytes differ from pinned formula checksum: " + info["full_name"])
+        installed = re.sub(rb"  bottle do.+?end\n\n?", b"", source, flags=re.S)
+        return hashlib.sha256(installed).hexdigest()
 
     @staticmethod
     def context_delta(previous, current):
         """Short, actionable context mismatch without embedding an entire dependency graph."""
-        fields = ["formula_sha256", "dependency_identity", "prefix", "cellar", "options"]
+        fields = ["formula_sha256", "dependency_identity", "dependency_graph", "prefix", "cellar", "options"]
         differences = [key for key in fields if previous.get(key) != current.get(key)]
         before = previous.get("dependencies", {})
         after = current.get("dependencies", {})
@@ -242,6 +314,8 @@ class Brew:
         context = self.context(info)
         variant = hashlib.sha256(canonical({"prefix": self.prefix, "cellar": self.cellar,
                                            "cpu": "homebrew-baseline", "options": [],
+                                           "dependency_identity": context["dependency_identity"],
+                                           "dependency_graph": context["dependency_graph"],
                                            "runtime_abi": context["dependencies"]})).hexdigest()
         rebuild = info.get("bottle", {}).get("stable", {}).get("rebuild", 0)
         m = {"schema": 1, "kind": kind, "name": (info.get("tap") or "homebrew/core") + "/" + info["name"],
@@ -302,7 +376,24 @@ class Brew:
             job.data["active_package"] = name
             job.save()
         try:
-            result = self._ensure(name, allow_build, as_dependency)
+            try:
+                result = self._ensure(name, allow_build, as_dependency)
+            except (BeforeBuildContextChanged, DuringBuildContextChanged, DependencyNotCurrent) as error:
+                check_stop()
+                if getattr(error, "pool_failed_package", name) != name:
+                    raise
+                if not hasattr(self, "context_recoveries"):
+                    self.context_recoveries = set()
+                if name in self.context_recoveries:
+                    raise
+                self.context_recoveries.add(name)
+                print("Self-heal: refreshed build plan once: " + str(error), flush=True)
+                if isinstance(error, DuringBuildContextChanged):
+                    self.force_targets.add(name)
+                # Re-read the graph and acquire the lease for the new identity.
+                # No update, reinstall, or queue advancement is implicit here.
+                self.seen.clear()
+                result = self._ensure(name, allow_build, as_dependency)
             if job:
                 job.data["active_package"] = previous
                 job.save()
@@ -330,7 +421,7 @@ class Brew:
         # Validate/install the runtime graph even when the requested formula itself
         # is current.  Otherwise a long build can finish with an outdated keg (for
         # example openssl@3) and only fail during bottle-context validation.
-        deps = self.package_lines(self.run("deps", "--topological", "--full-name", name))
+        deps = self.declared_dependencies(name, "--topological")
         for dep in deps:
             self.ensure(dep, allow_build, as_dependency=True)
         if self.up_to_date(info) and name not in self.force_targets:
@@ -353,10 +444,13 @@ class Brew:
         # (without the API). Keep that checkout aligned with the formula
         # Homebrew is about to build, but only by a clean fast-forward.
         self.sync_tap_for_build(info)
+        # All subsequent recipe operations use the synchronized local taps.
+        # Homebrew must not select a fresh API recipe during installation.
+        self.env["HOMEBREW_NO_INSTALL_FROM_API"] = "1"
         info = self.info(name)
 
         # On a miss, build dependencies also participate in the same pool protocol.
-        build_deps = self.package_lines(self.run("deps", "--include-build", "--include-test", "--topological", "--full-name", name))
+        build_deps = self.declared_dependencies(name, "--include-build", "--include-test", "--topological")
         for dep in build_deps:
             self.ensure(dep, allow_build, as_dependency=True)
 
@@ -380,6 +474,7 @@ class Brew:
         self.validate_name(name)
         self.preflight()
         self.run("update", capture=False)
+        self.snapshot_updated_taps()
         self.ensure(name, allow_build=allow_build, as_dependency=True)
         repaired = self.info(name)
         if not self.up_to_date(repaired):
@@ -492,17 +587,32 @@ class Brew:
             self.run("tap", "--force", tap, capture=False)
         # Revalidate after tap synchronization and dependency work, before either
         # replacing an installed keg or publishing anything derived from it.
+        self.sync_tap_for_build(info)
         fresh = self.info(name)
         fresh_context = self.context(fresh)
         if self.pkg_version(fresh) != manifest["version"] or fresh_context != manifest["metadata"]["context"]:
-            raise PoolError("Formula/dependency context changed before build ("
+            raise BeforeBuildContextChanged("Formula/dependency context changed before build ("
                             + self.context_delta(manifest["metadata"]["context"], fresh_context)
                             + "); retry: " + name)
         info = fresh
         flags = ["--as-dependency"] if as_dependency else []
         current_retry = self.up_to_date(info) and name in self.force_targets
         receipt = self._matching_install(info)
-        already_prepared = bool(current_retry and receipt and receipt.get("built_as_bottle"))
+        build_inputs = {}
+        for dependency in self.declared_dependencies(name, "--include-build", "--include-test", "--topological"):
+            record = self.info(dependency)
+            if not self.up_to_date(record):
+                raise DependencyNotCurrent("Build dependency not current: " + dependency)
+            build_inputs[record["full_name"]] = {"version": self.pkg_version(record), "source": self.installed_source_hash(record)}
+        target_recipe_hash = self.planned_installed_recipe_hash(info)
+        build_proof = {"runtime": manifest["metadata"]["context"], "build": build_inputs,
+                       "installed_recipe_sha256": target_recipe_hash}
+        proof_path = self.client.state / "build-proofs" / (hashlib.sha256(
+            canonical([name, manifest["version"]])).hexdigest() + ".json")
+        proof = json.loads(proof_path.read_text()) if proof_path.exists() else None
+        already_prepared = bool(current_retry and receipt and receipt.get("built_as_bottle")
+                                and proof == {"inputs": build_proof, "keg": self.installed_keg_identity(info)}
+                                and self.installed_source_hash(info) == target_recipe_hash)
         staged = None
         install_completed = already_prepared
         postinstalled = False
@@ -515,6 +625,10 @@ class Brew:
                     install_args.append("--force")
                 self.run(*install_args, *flags, name, capture=False)
                 install_completed = True
+                installed_info = self.info(name)
+                if self.installed_source_hash(installed_info) != target_recipe_hash:
+                    raise PoolError("Installed build recipe differs from the pinned plan; artifact not published: " + name)
+                atomic_json(proof_path, {"inputs": build_proof, "keg": self.installed_keg_identity(installed_info)})
             with tempfile.TemporaryDirectory(prefix="bottle-", dir=str(self.client.state)) as work:
                 self.sync_tap_for_build(info)
                 bottle_args = ["bottle", "--json", "--keep-old"]
@@ -544,12 +658,31 @@ class Brew:
                 postinstalled = True
                 self.run("test", name, capture=False)
                 # Detect metadata/dependency changes during long builds.
+                self.sync_tap_for_build(info)
                 after = self.info(name)
-                after_context = self.context(after)
+                try:
+                    after_context = self.context(after)
+                except DependencyNotCurrent as error:
+                    raise DuringBuildContextChanged(str(error)) from error
                 if self.pkg_version(after) != manifest["version"] or after_context != manifest["metadata"]["context"]:
-                    raise PoolError("Formula/dependency context changed during build ("
+                    raise DuringBuildContextChanged("Formula/dependency context changed during build ("
                                     + self.context_delta(manifest["metadata"]["context"], after_context)
                                     + "); artifact not published")
+                after_build_inputs = {}
+                for dependency in self.declared_dependencies(name, "--include-build", "--include-test", "--topological"):
+                    record = self.info(dependency)
+                    if not self.up_to_date(record):
+                        raise DuringBuildContextChanged("Build dependency changed during build: " + dependency)
+                    after_build_inputs[record["full_name"]] = {"version": self.pkg_version(record), "source": self.installed_source_hash(record)}
+                if after_build_inputs != build_inputs:
+                    raise DuringBuildContextChanged("Build/test dependency graph changed during build; artifact not published: " + name)
+                actual = set(self.package_lines(self.run("deps", "--full-name", name)))
+                declared = set(after_context["dependencies"])
+                unexpected = actual - declared
+                if unexpected:
+                    raise PoolError("Undeclared installed runtime dependencies; artifact not published, review recipe: "
+                                    + ", ".join(sorted(unexpected)))
+                self.run("linkage", "--test", name, capture=False)
                 queued = self.client.enqueue(manifest, output)
                 if lease and not lease.lost:
                     try:
@@ -562,7 +695,11 @@ class Brew:
                 if validated:
                     self._commit_staged_keg(staged)
                 else:
-                    self._restore_staged_keg(staged)
+                    # A proof for the discarded replacement cannot describe the restored binary.
+                    try:
+                        proof_path.unlink(missing_ok=True)
+                    finally:
+                        self._restore_staged_keg(staged)
             # --build-bottle skips this; a fresh/non-transactional installation
             # still needs postinstall even when a later bottle step failed.
             if not staged and install_completed and not postinstalled:
@@ -744,6 +881,8 @@ class Brew:
             self.preflight()
         elif kind in ("update", "missing"):
             self.run(kind, capture=False)
+            if kind == "update":
+                self.snapshot_updated_taps()
         elif kind == "discover":
             outdated = json.loads(self.run("outdated", "--json=v2"))
             requested = job.data["options"].get("names", [])

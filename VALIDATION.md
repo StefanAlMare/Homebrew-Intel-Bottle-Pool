@@ -73,8 +73,11 @@ stapling și Gatekeeper pentru app/DMG, apoi descarcă release-ul pentru reverif
 Pentru o distribuție finală, `app-notarization.json` și `dmg-notarization.json`
 trebuie să raporteze Accepted, iar ticket-urile reale ale app/DMG trebuie să treacă
 stapler și Gatekeeper. Logurile notarizării sunt incluse în artefacte și hash-uri.
-Nu se cer parole noi și nu se extrag parole din Keychain. Un bundle semnat sau
-checksum-uri corecte nu constituie confirmare de notarizare.
+Credențialele sunt folosite prin profilul notarytool din Keychain, fără extragere
+sau transmitere în conversație. Utilizatorul a autorizat configurarea locală a
+unei parole specifice aplicației, introdusă direct în promptul securizat Apple;
+certificatul Developer ID existent este păstrat. Un bundle semnat sau checksum-uri
+corecte nu constituie confirmare de notarizare.
 
 Documentația și diagrama How it works au fost refăcute pentru întregul flux 0.3.5.
 Gate-ul cere toate documentele și PNG/SVG în source ZIP și în setul final de

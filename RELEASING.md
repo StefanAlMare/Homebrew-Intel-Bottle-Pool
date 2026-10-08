@@ -32,14 +32,20 @@ signed bundle or reuse a source archive from another commit.
 ## 3. Notarize and staple locally
 
 Use `notarize-macos.sh` with the existing SIGNING_IDENTITY and NOTARY_PROFILE.
-NOTARY_PROFILE is the name of a notarytool profile already configured on the Mac;
-no Apple account password is read from files, requested, or extracted from Keychain.
+NOTARY_PROFILE is the name of a notarytool profile configured on the Mac.
+Passwords must never be sent in chat, stored in repository files, placed in command
+arguments, or extracted from Keychain. If the user explicitly authorizes a new
+app-specific password, they generate it at [Apple Account](https://account.apple.com/)
+and enter it directly into the local secure prompt from `notarytool store-credentials`.
+Omit the password option so notarytool prompts without echo and validates the
+credentials before saving them in Keychain. The existing signing certificate is
+unchanged. See [Apple's instructions](https://support.apple.com/102654).
 If that profile exists on an authorized Mac instead, set NOTARY_HOST to its
 known SSH host. Existing SSH authentication and
 strict known-host checking are required. The helper transfers only the signed
 archive, verifies its SHA-256 remotely, and returns the Apple receipt/log; no
-credentials are copied. If SSH/profile access is unavailable, stop before
-publication and restore access to that existing Mac. Do not create new credentials.
+credentials are copied. If access is unavailable, stop before publication until
+an authorized, validated local or remote profile is available.
 ZIP files submitted for an older release do not contain reusable
 notarization credentials or tickets for a changed application.
 

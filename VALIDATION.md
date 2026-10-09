@@ -1,6 +1,6 @@
-# Validation — v0.3.6 standard preview
+# Validation — v0.3.6 standard release
 
-## License revision 1
+## Scope of distribution verification
 
 This edition changes license/documentation and distribution packaging only.
 The v0.3.6 application binary is unchanged; the 201-test/13-GUI results below
@@ -44,4 +44,4 @@ Q9300 lacks SSE4.2/AVX. Required-feature refusal occurs before fetch/pour. No au
 
 English documentation changes do not alter the signed application binary. Changed DMG documentation requires a locally recreated/signed/notarized/stapled DMG. The unchanged app retains its valid ticket; current receipts are published.
 
-Public source excludes private config/token/job/spool, build scratch space, upstream binary backups and local working logs. Publication is separately authorized; no Actions/CI/remote builds. **Preview**, pending physical acceptance.
+Public source excludes private config/token/job/spool, build scratch space, upstream binary backups and local working logs. Publication is separately authorized; no Actions/CI/remote builds. Physical acceptance testing remains outstanding. Classification as a regular release does not imply that these tests were completed.

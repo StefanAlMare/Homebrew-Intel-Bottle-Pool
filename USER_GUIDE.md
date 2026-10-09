@@ -1,6 +1,4 @@
-# User guide — 0.3.6 preview
-
-> **License 1.1:** personal non-commercial use of the official unmodified app/server is permitted. **Commercial/business use and any code reuse, modification, integration, redistribution or derivative work require StefanAlMare's prior explicit written permission.** Not open source. See [LICENSE](LICENSE).
+# User guide — v0.3.6
 
 [Home](README.md) · [Installation](INSTALLATION.md) · [Server](SERVER_SETUP.md) · [Import evidence](IMPORT_PROVENANCE.md)
 
@@ -75,4 +73,8 @@ Healthy/Connected: reachable pool, empty spool. Offline/Spooling: validated outp
 
 Finish/safely pause work, Quit, then use the DMG Applications shortcut. Existing settings remain outside the app. Keep the previous binary for rollback; do not erase state. Do not run standard/.test editions concurrently on one Homebrew.
 
-The app does not install itself or start upgrades automatically. This preview still needs physical HP/MacBook Pro 2012/Q9300 acceptance tests.
+The app does not install itself or start upgrades automatically. Physical HP/MacBook Pro 2012/Q9300 acceptance tests remain outstanding; see [VALIDATION.md](VALIDATION.md).
+
+## Software license, security and permissions
+
+The [LICENSE](LICENSE) applies to the original Homebrew Intel Bottle Pool software distributed under it, including the macOS app, server, command-line client, source, build scripts, tests and documentation; it is not limited to v0.3.6. Official unmodified copies may be used personally and non-commercially under the current license. Commercial or professional use, source reuse, integration, modification, redistribution and derivatives require prior explicit written permission from StefanAlMare. Public GitHub viewing and forking remain permitted by GitHub's Terms of Service. Third-party licenses and valid permissions accompanying historical releases remain unaffected. Protect pool tokens, keys and private deployment data.

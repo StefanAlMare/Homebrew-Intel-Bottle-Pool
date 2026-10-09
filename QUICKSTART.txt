@@ -1,13 +1,4 @@
-Homebrew Intel Bottle Pool 0.3.6 — STANDARD PREVIEW
-
-COPYRIGHT / PERMISSION — LICENSE 1.1
-  Copyright (c) 2026 StefanAlMare. All rights reserved. NOT open source.
-  Official unmodified app/server: personal, non-commercial use permitted.
-  Commercial/business use, code reuse, modification, integration into other
-  projects, redistribution and derivative works require StefanAlMare's PRIOR
-  EXPLICIT WRITTEN PERMISSION. Attribution or a fork is not consent.
-  Read License.txt / LICENSE. Third-party packages retain their own licenses.
-  Earlier copies retain their accompanying license; no retroactive revocation.
+Homebrew Intel Bottle Pool 0.3.6 — STANDARD RELEASE
 
 Home / guides
   https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool
@@ -18,7 +9,7 @@ Install / Upgrade
   1. Download the COMPLETE v0.3.6 License 1.1 app (not license-only):
      DMG: https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg
      SHA256SUMS: https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt
-     GitHub may show v0.3.5 as "Latest" because v0.3.6 is a PREVIEW.
+     Current regular release: v0.3.6. Keep v0.3.5 available for rollback.
      Calculate its SHA-256; compare the full digest with its matching line.
      A full -c check needs all listed assets downloaded.
   2. Finish work and Quit before replacement. In v0.3.6 Pause Safely, wait for
@@ -69,7 +60,23 @@ Server / compatibility
 
 Status
   Local builds/signing/notarization; no Actions/CI/remote builds.
-  Preview: physical HP / MacBook Pro 2012 / Q9300 tests pending.
+  Physical HP / MacBook Pro 2012 / Q9300 acceptance testing remains pending.
 
 Created by StefanAlMare, developed with ChatGPT by OpenAI.
 Independent of Homebrew. See License.txt; source-available, not MIT.
+
+Software license and security — whole project
+  The current LICENSE covers the official Homebrew Intel Bottle Pool application,
+  server, command-line client, source, scripts, guides and accompanying software;
+  the legal terms are not specific to the v0.3.6 release. GitHub's viewing/forking
+  rights, third-party licenses and valid rights under historical copies remain.
+  Protect authentication tokens, private keys and server credentials.
+
+COPYRIGHT / PERMISSION — LICENSE 1.1
+  Copyright (c) 2026 StefanAlMare. All rights reserved. NOT open source.
+  Official unmodified app/server: personal, non-commercial use permitted.
+  Commercial/business use, code reuse, modification, integration into other
+  projects, redistribution and derivative works require StefanAlMare's PRIOR
+  EXPLICIT WRITTEN PERMISSION. Attribution or a fork is not consent.
+  Read License.txt / LICENSE. Third-party packages retain their own licenses.
+  Earlier copies retain their accompanying license; no retroactive revocation.

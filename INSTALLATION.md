@@ -1,12 +1,10 @@
 # Installation and deployment guide
 
-> **License 1.1:** personal non-commercial use of the official unmodified app/server is permitted. **Commercial/business use and any code reuse, modification, integration, redistribution or derivative work require StefanAlMare's prior explicit written permission.** Not open source. See [LICENSE](LICENSE).
-
 [Home](README.md) · [Server setup](SERVER_SETUP.md) · [User guide](USER_GUIDE.md)
 
-Version 0.3.6 is a preview pending physical HP / MacBook Pro 2012 / Q9300 tests.
+Version 0.3.6 is the current regular release. Physical HP / MacBook Pro 2012 / Q9300 acceptance testing is not documented as complete; see [VALIDATION.md](VALIDATION.md).
 
-**Current preview download (complete app, not license-only):** [v0.3.6 License 1.1 DMG](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg), [alternative ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip), [SHA256SUMS.txt](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt). [Release details](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1). GitHub's generic **Latest** indicator continues to identify v0.3.5, the last stable release, because v0.3.6 is intentionally a prerelease. Keep the older release for rollback.
+**Current v0.3.6 download (complete app):** [v0.3.6 License 1.1 DMG](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg), [alternative ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip), [SHA256SUMS.txt](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt). [Release details](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1). The older v0.3.5 release remains available for rollback.
 
 For the additional v0.3.6 standard-upgrade package, follow QUICKSTART.txt:
 In v0.3.6: Pause Safely, wait for Safely Paused, Quit, then drag the app onto the
@@ -242,3 +240,7 @@ testing, documentation, security review, and release preparation.
 
 This project is independent from Homebrew and is not affiliated with or endorsed
 by Homebrew.
+
+## Software license, security and permissions
+
+The [LICENSE](LICENSE) applies to the original Homebrew Intel Bottle Pool software distributed under it, including the macOS app, server, command-line client, source, build scripts, tests and documentation; it is not limited to v0.3.6. Official unmodified copies may be used personally and non-commercially under the current license. Commercial or professional use, source reuse, integration, modification, redistribution and derivatives require prior explicit written permission from StefanAlMare. Public GitHub viewing and forking remain permitted by GitHub's Terms of Service. Third-party licenses and valid permissions accompanying historical releases remain unaffected. Protect pool tokens, keys and private deployment data.

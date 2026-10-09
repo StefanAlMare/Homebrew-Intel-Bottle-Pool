@@ -1,6 +1,4 @@
-# v0.3.6 standard preview — handover
-
-> **License 1.1:** personal non-commercial use of the official unmodified app/server is permitted. **Commercial/business use and any code reuse, modification, integration, redistribution or derivative work require StefanAlMare's prior explicit written permission.** Not open source. See [LICENSE](LICENSE).
+# v0.3.6 standard release — handover
 
 Finish current work before replacing an older app. In v0.3.6: Pause Safely, wait for Safely Paused, Quit. Open the standard DMG, drag Homebrew Pool.app onto Applications, choose Replace only when ready. Keep the previous binary.
 
@@ -10,6 +8,10 @@ Install / Update & Upgrade publish validated artifacts. Offline output stays in 
 
 Q9300 lacks SSE4.2/AVX. Incompatible artifacts are refused. Compatibility Options suggests reviewed versioned formulae or separately approved builds, never an automatic downgrade/branch switch or guaranteed unsupported compilation.
 
-Existing schema 1 servers need no reset or TrueNAS changes. Read SERVER_SETUP for new deployments, USER_GUIDE for controls, IMPORT_PROVENANCE for evidence and VALIDATION for exact results. Physical HP/MBP2012/Q9300 tests are pending; this is a preview.
+Existing schema 1 servers need no reset or TrueNAS changes. Read SERVER_SETUP for new deployments, USER_GUIDE for controls, IMPORT_PROVENANCE for evidence and VALIDATION for exact results. Physical HP/MBP2012/Q9300 acceptance tests remain pending; regular release status does not mean those tests passed.
 
 Local build/signing/notarization only. Authorized GitHub upload includes source/English docs/assets; no Actions/CI/remote builds. No automatic production installation.
+
+## Security and project-wide software permissions
+
+The [LICENSE](LICENSE) applies to all original Homebrew Intel Bottle Pool software distributed under it: the app, server, CLI, source, scripts, tests and guides. It is not limited to a particular release. Under the current license, personal non-commercial use of official unmodified software is permitted; commercial or professional use, source-code reuse, modification, integration, redistribution and derivatives require prior explicit written permission from StefanAlMare. GitHub viewing and forking permissions under its Terms of Service, third-party licenses and valid historical grants are preserved. Protect authentication tokens, certificates and private deployment data.

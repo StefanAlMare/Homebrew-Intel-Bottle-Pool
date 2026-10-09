@@ -6,6 +6,8 @@
 
 Version 0.3.6 is a preview pending physical HP / MacBook Pro 2012 / Q9300 tests.
 
+**Current preview download (complete app, not license-only):** [v0.3.6 License 1.1 DMG](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg), [alternative ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip), [SHA256SUMS.txt](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt). [Release details](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1). GitHub's generic **Latest** indicator continues to identify v0.3.5, the last stable release, because v0.3.6 is intentionally a prerelease. Keep the older release for rollback.
+
 For the additional v0.3.6 standard-upgrade package, follow QUICKSTART.txt:
 In v0.3.6: Pause Safely, wait for Safely Paused, Quit, then drag the app onto the
 DMG's Applications shortcut. An older version without safe pause must finish

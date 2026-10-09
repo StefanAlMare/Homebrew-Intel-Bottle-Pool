@@ -1,7 +1,5 @@
 # Verified imports and producer evidence
 
-> **License 1.1:** personal non-commercial use of the official unmodified app/server is permitted. **Commercial/business use and any code reuse, modification, integration, redistribution or derivative work require StefanAlMare's prior explicit written permission.** Not open source. See [LICENSE](LICENSE).
-
 Official Homebrew bottles can be verified against the exact checksum in the
 current Homebrew formula metadata. A filename or an installed keg alone is never
 enough evidence for a local bottle.
@@ -97,3 +95,7 @@ disabled/deprecated/support warnings, offers an explicitly approved Core 2
 source build, or a separately reviewed legacy-source patch. A Python versioned
 formula is not a Git branch. No automatic downgrade, dependency substitution,
 branch selection or unsafe artifact publication occurs.
+
+## Security, license and software permissions
+
+The current [LICENSE](LICENSE) governs the original Homebrew Intel Bottle Pool software distributed under it — including the app, server, client, scripts, tools and documentation — not just v0.3.6. Official unmodified personal non-commercial use is permitted under the current terms. Commercial/business use, source-code reuse, integration, modification, redistribution and derivative works require prior explicit written permission from StefanAlMare. GitHub public viewing/forking rights remain under its Terms of Service; historical licenses and valid prior grants are preserved, as are all third-party licenses. Protect server secrets, token files and private client configurations.

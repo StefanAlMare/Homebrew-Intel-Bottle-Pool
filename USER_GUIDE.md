@@ -2,6 +2,12 @@
 
 [Home](README.md) · [Installation](INSTALLATION.md) · [Server](SERVER_SETUP.md) · [Import evidence](IMPORT_PROVENANCE.md)
 
+## Core2 Legacy in the local v0.3.7 Hotfix 1 (build 38)
+
+Core2 Legacy is a separate, opt-in private channel accessible from the **Core2 Legacy…** menu, after Maintenance Console. **Review status**, **Review hardware**, and **Create disabled setup** do not enroll a machine or publish a bottle. Use **Load approved setup…** only with a separately approved private configuration. Verify, Publish, Download and Build Plan are explicit actions with independent authorization; no global-pool fallback is permitted. See [Core2 Legacy guide](CORE2_LEGACY.md).
+
+The v0.3.7 Hotfix 1 DMG is a local deliverable pending official publication; the public v0.3.6 guide remains valid for the latest downloadable release. Known UI/dependency bugs affecting the local v0.3.7 build are tracked for the next client version. Do not run a paused failed Homebrew batch merely to test the server.
+
 ## First session
 
 Open the standard app from Applications. Complete Setup only if no existing config is found: private HTTPS URL, token/token file, CA only when needed, Test Connection, then Save & Finish.

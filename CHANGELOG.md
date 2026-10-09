@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.7 Hotfix 1, build 38 — October 9, 2026 (local delivery; GitHub publication pending)
+
+- Introduce a separately configured **Core2 Legacy** panel and private `/v2/core2-legacy` protocol with machine enrollment, CPU-target checks, evidence-based artifact approval, and explicit publish/download/build actions. Global Pool data and Core2 state remain separate; auto-import remains OFF.
+- Repair GUI-to-backend per-operation repository-access authorization for Update & Upgrade, Install, Retry/Resume and Maintenance. No persistent blanket authorization is written to config or queue.
+- Improve reporting of refused operations and placement of Core2 Legacy in the menu.
+- Validation recorded in the local handover: 87 automated checks and one compiled-app GUI workflow test; not evidence of a real Homebrew update or a physically tested Core2 bottle.
+- Reported remaining issues are tracked for **v0.3.8**, not presented as v0.3.7 fixes: oversized error dialog, duplicate Start at Login instance, and general batch/dependency planning and reconciliation improvements.
+- Preserve v0.3.6 source/release history and LICENSE 1.1 permission scope. The official signed/notarized DMG, matching source and verification files must be uploaded and checked before publication is declared complete.
+
 ## v0.3.6 license revision 1 — October 8, 2026
 
 - Restore a prominent, detailed copyright/source-permission notice on the homepage and release notes, rather than the shortened footer.

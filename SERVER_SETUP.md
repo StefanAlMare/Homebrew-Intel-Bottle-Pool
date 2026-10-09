@@ -4,6 +4,10 @@
 
 For **new deployments**. Existing schema 1 servers need no reset, credential rotation or TrueNAS modification for a v0.3.6 client upgrade.
 
+## Compatibility of global and Core2 servers
+
+The public global server uses schema 1 and the `/v1` API. An independently deployed newer global server can expose fast `/v2/catalog` discovery while keeping `/v1` compatibility; the production pilot is described in [SERVER_NEXT.md](SERVER_NEXT.md), **not** represented by the old source in this repository. Core2 Legacy uses its own private `/v2/core2-legacy` service, HTTPS, storage, machine tokens and approvals. It must not reuse global credentials or allowlists. See [CORE2_LEGACY.md](CORE2_LEGACY.md).
+
 ## Plan the deployment
 
 One NAS/TrueNAS/Linux host stores artifacts and coordinates leases; builds remain on Macs. Use persistent local storage, Python 3.9+ or Docker/Compose, a dedicated account, private connectivity and TLS. One service owns one data root. Do not use SMB/NFS as the active root.

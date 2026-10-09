@@ -1,12 +1,24 @@
 # Homebrew Intel Bottle Pool
 
-**Version 0.3.6 · Intel macOS client and private bottle pool**
+**Latest published release: v0.3.6 · v0.3.7 Hotfix 1 (build 38) prepared locally**
 
 > Build once. Reuse safely across compatible Intel Macs.
 
 Trusted Intel Macs share software they have already built or downloaded. A Mac finds a compatible bottle, or builds and validates one locally, then shares it through your private pool. The server stores artifacts; it never compiles Homebrew.
 
 Created and maintained by **StefanAlMare**, developed together with **ChatGPT by OpenAI**. Independent of Homebrew; not affiliated with or endorsed by Homebrew.
+
+## v0.3.7 Hotfix 1 (build 38) — publication in preparation
+
+The local v0.3.7 Hotfix 1 build includes the private **Core2 Legacy** management panel, separate machine authorization, and a fix for passing explicit user confirmation to Homebrew operations. The signed/notarized local delivery and its source/evidence folder must be verified before publishing a GitHub release. **Until the authentic v0.3.7 artifacts are uploaded and checked, v0.3.6 remains the latest downloadable GitHub release.**
+
+- [v0.3.7 changes and outstanding checks](RELEASE_NOTES_0.3.7.md)
+- [Core2 Legacy guide](CORE2_LEGACY.md)
+- [Server-next architecture and deployment distinction](SERVER_NEXT.md)
+- [Security and responsible disclosure](SECURITY.md)
+- [Release verification checklist](RELEASE_CHECKLIST_0.3.7.md)
+
+**Next client release (planned, not yet shipped):** v0.3.8 will address oversized error dialogs, dependency-graph validation for whole Homebrew batches, duplicate Start at Login instances, and fast catalog-based reuse/reconciliation. None of those fixes should be attributed to v0.3.7.
 
 ## Download v0.3.6
 
@@ -23,6 +35,7 @@ Created and maintained by **StefanAlMare**, developed together with **ChatGPT by
 | Install or upgrade the app | [Download v0.3.6 — License 1.1 edition](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1), then follow [Install / Upgrade](#install--upgrade). |
 | Create a private pool | Follow [Server setup](SERVER_SETUP.md), then enroll Macs with [Installation](INSTALLATION.md). |
 | Understand the buttons | Read the [User guide](USER_GUIDE.md): Pause, Resume, imports and recovery. |
+| Plan Core2 Legacy deployment | Read the [Core2 Legacy guide](CORE2_LEGACY.md); enrollment is explicit and separate from the global pool. |
 | Use an older Intel Mac | Read [compatibility](#compatibility-and-older-intel-macs) before sharing bottles. |
 | Audit the release | Read [changes](RELEASE_NOTES.md), [validation](VALIDATION.md), [parity](PARITY_REPORT.md) and [license](LICENSE). |
 
@@ -129,7 +142,7 @@ A pool is for trusted peers. Hash/context checks do not make a malicious produce
 
 ## Software license and project-wide permissions
 
-The following rules concern the original **Homebrew Intel Bottle Pool software as a whole**: the macOS app, server, command-line client, scripts, build tooling, tests, documentation and corresponding distributions. They are not a special restriction on v0.3.6 alone. The current [LICENSE](LICENSE) governs copies distributed under its terms; earlier distributions retain their accompanying licenses and valid prior grants.
+The following rules concern the original **Homebrew Intel Bottle Pool software as a whole**, including future releases: the macOS app, server, command-line client, scripts, build tooling, tests, documentation and corresponding distributions. They are not a special restriction on v0.3.6 alone. The current [LICENSE](LICENSE) governs copies distributed under its terms; earlier distributions retain their accompanying licenses and valid prior grants.
 
 **Copyright © 2026 StefanAlMare. All rights reserved. Not open source; not MIT.**
 
@@ -142,6 +155,6 @@ The following rules concern the original **Homebrew Intel Bottle Pool software a
 
 Contact [StefanAlMare](https://github.com/StefanAlMare) with the exact intended use. Giving credit, opening an issue, a fork or silence is not authorization. Do not publish secrets or private commercial details in an issue.
 
-GitHub's limited public-repository viewing/forking rights remain as required by its Terms; they do not grant general code reuse. Third-party Homebrew packages retain their own licenses. Earlier distributions retain the license that accompanied them; version 1.1 does not retroactively revoke valid prior grants. See [LICENSE](LICENSE) for the complete controlling terms.
+GitHub's public-repository viewing/forking rights remain as required by its [Terms of Service](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service); they do not grant general code reuse. Third-party Homebrew packages retain their own licenses. Earlier distributions retain the license that accompanied them; version 1.1 does not retroactively revoke valid prior grants. See [LICENSE](LICENSE) for the complete controlling terms.
 
 Created and directed by **StefanAlMare**, developed with **ChatGPT by OpenAI** for design, implementation, testing, documentation and release preparation.

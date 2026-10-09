@@ -4,6 +4,8 @@ The permission correction is published as v0.3.6-license.1, with the same
 runtime and LICENSE 1.1 inside the refreshed DMG, source and app ZIP packaging.
 Never move/rewrite the historical v0.3.6 tag or claim retroactive revocation.
 
+For **v0.3.7 Hotfix 1, build 38**, use the original local deliverable, source and verification reports. Do not relabel a v0.3.6 binary, substitute source from the default branch, or claim successful notarization without checking the actual distribution. See [release checklist](RELEASE_CHECKLIST_0.3.7.md). The existing v0.3.6 release and historical tags remain unchanged.
+
 Builds/tests/signing/notarization run on the authorized local Intel Mac. No GitHub Actions, CI, hosted runners or remote builds. Publication requires separate explicit authorization.
 
 ## Local gates

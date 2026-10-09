@@ -1,4 +1,6 @@
-# Validation — v0.3.6 standard release
+# Validation — published v0.3.6 and pending v0.3.7 evidence
+
+**Scope:** the results further down are from the published v0.3.6 release and must not be silently attributed to v0.3.7. The v0.3.7 Hotfix 1 build 38 handover reports **87 automated checks** plus one compiled GUI dispatch smoke test; the local source, receipts, DMG SHA-256, signature and notarization records must be re-checked at publication. A real Homebrew upgrade and native Core2 bottle compatibility were not established by those tests. See [v0.3.7 release notes](RELEASE_NOTES_0.3.7.md) and [release checklist](RELEASE_CHECKLIST_0.3.7.md).
 
 ## Scope of distribution verification
 

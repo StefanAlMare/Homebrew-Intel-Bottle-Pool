@@ -1,3 +1,5 @@
+**Release history:** the independently built [v0.3.7 Hotfix 1 (build 38)](RELEASE_NOTES_0.3.7.md) is documented separately and awaits verified GitHub asset publication. This page remains the release notes for the last published v0.3.6 package.
+
 # Homebrew Intel Bottle Pool v0.3.6
 
 **Current download:** [Homebrew Intel Bottle Pool v0.3.6 (DMG)](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg) · [ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip) · [SHA256SUMS](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt) · [All release assets](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1). The `license.1` filename suffix identifies the license revision, not a license-only package. v0.3.6 is the current official release; historical v0.3.5 remains available for rollback.

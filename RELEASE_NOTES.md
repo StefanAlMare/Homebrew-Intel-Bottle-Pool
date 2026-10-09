@@ -1,23 +1,8 @@
-# Homebrew Intel Bottle Pool v0.3.6 — preview
+# Homebrew Intel Bottle Pool v0.3.6
 
-**Current download:** [Complete v0.3.6 License 1.1 macOS app (DMG)](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg) · [ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip) · [SHA256SUMS](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt) · [All release assets](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1). The License 1.1 edition includes the full app; it is not a license-only package. This preview does not replace v0.3.5 as GitHub's latest stable release until acceptance tests are complete.
+**Current download:** [Homebrew Intel Bottle Pool v0.3.6 (DMG)](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg) · [ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip) · [SHA256SUMS](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt) · [All release assets](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1). The `license.1` filename suffix identifies the license revision, not a license-only package. v0.3.6 is the current official release; historical v0.3.5 remains available for rollback.
 
-## License revision 1 — IMPORTANT
-
-**Copyright © 2026 StefanAlMare. All rights reserved. Source-available, NOT open source.**
-Personal, non-commercial use of the official unmodified app/server is permitted.
-**Commercial/business use and any source reuse, modification, integration into
-other projects, redistribution or derivative work require StefanAlMare's PRIOR
-EXPLICIT WRITTEN PERMISSION.** Attribution or a fork is not consent.
-See [LICENSE 1.1](LICENSE). Third-party packages retain their own licenses.
-
-This license-revision edition keeps the same v0.3.6 runtime binary. It makes the
-permission notice prominent and removes the earlier broad business-use grant
-for newly licensed copies. Historical tags/licenses are not rewritten, and valid
-prior grants are not retroactively revoked. Download the license-revision
-edition linked from the current homepage, not a historical source snapshot.
-
-Standard upgrade package, locally built for Intel macOS, Developer ID signed and Apple notarized. Published as a **prerelease** pending physical HP/MacBook Pro 2012/Core 2 Quad Q9300 tests.
+Standard upgrade package, locally built for Intel macOS, Developer ID signed and Apple notarized. Published as the current regular release. Physical HP/MacBook Pro 2012/Core 2 Quad Q9300 acceptance testing remains outstanding; release status is not a claim those tests passed.
 
 ## New features
 
@@ -49,3 +34,20 @@ The English homepage retains the green architecture diagram and adds clear start
 All build/test/signing/notarization work is local. GitHub receives separately authorized source/documentation and assets only. No Actions, CI or hosted builds.
 
 Created by StefanAlMare, developed with ChatGPT by OpenAI. Independent of Homebrew; [source-available license](LICENSE).
+
+## Software license and project-wide permissions
+
+The current [LICENSE](LICENSE) governs Homebrew Intel Bottle Pool software distributed with it, including the app, server, client, scripts, tooling, tests, documentation and distribution — not just this release. Earlier copies retain their accompanying terms and previously granted valid rights. GitHub's public viewing and forking rights remain available under its Terms of Service.
+
+**Copyright © 2026 StefanAlMare. All rights reserved. Source-available, NOT open source.**
+Personal, non-commercial use of the official unmodified app/server is permitted.
+**Commercial/business use and any source reuse, modification, integration into
+other projects, redistribution or derivative work require StefanAlMare's PRIOR
+EXPLICIT WRITTEN PERMISSION.** Attribution or a fork is not consent.
+See [LICENSE 1.1](LICENSE). Third-party packages retain their own licenses.
+
+This license-revision edition keeps the same v0.3.6 runtime binary. It makes the
+permission notice prominent and removes the earlier broad business-use grant
+for newly licensed copies. Historical tags/licenses are not rewritten, and valid
+prior grants are not retroactively revoked. Download the license-revision
+edition linked from the current homepage, not a historical source snapshot.

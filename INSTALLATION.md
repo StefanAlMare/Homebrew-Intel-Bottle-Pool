@@ -6,9 +6,9 @@
 
 Version 0.3.7 Hotfix 1, build 38 is the current regular release. The v0.3.6 download details below are retained for rollback. Physical HP / MacBook Pro 2012 / Q9300 acceptance testing is not documented as complete; see [VALIDATION.md](VALIDATION.md).
 
-**Current v0.3.6 download (complete app):** [v0.3.6 License 1.1 DMG](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg), [alternative ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip), [SHA256SUMS.txt](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt). [Release details](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1). The older v0.3.5 release remains available for rollback.
+**Previous v0.3.6 rollback download (complete app):** [v0.3.6 License 1.1 DMG](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg), [alternative ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip), [SHA256SUMS.txt](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt). [Release details](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1). The older v0.3.5 release remains available for rollback.
 
-For the additional v0.3.6 standard-upgrade package, follow QUICKSTART.txt:
+For a rollback to the previous v0.3.6 standard package, use the historical v0.3.6 instructions retained in QUICKSTART.txt:
 In v0.3.6: Pause Safely, wait for Safely Paused, Quit, then drag the app onto the
 DMG's Applications shortcut. An older version without safe pause must finish
 its current work before replacement. Keep the previous binary for rollback.

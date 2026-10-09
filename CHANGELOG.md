@@ -7,7 +7,7 @@
 - Improve reporting of refused operations and placement of Core2 Legacy in the menu.
 - Validation recorded in the local handover: 87 automated checks and one compiled-app GUI workflow test; not evidence of a real Homebrew update or a physically tested Core2 bottle.
 - Reported remaining issues are tracked for **v0.3.8**, not presented as v0.3.7 fixes: oversized error dialog, duplicate Start at Login instance, and general batch/dependency planning and reconciliation improvements.
-- Preserve v0.3.6 source/release history and LICENSE 1.1 permission scope. The official signed/notarized DMG, matching source and verification files must be uploaded and checked before publication is declared complete.
+- Preserve v0.3.6 source/release history and LICENSE 1.1 permission scope. The locally signed/notarized build 38 DMG, matching source, verification files and SHA-256 manifest were uploaded and checked after downloading all seven GitHub release assets.
 
 ## v0.3.6 license revision 1 — October 8, 2026
 

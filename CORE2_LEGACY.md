@@ -1,6 +1,6 @@
 # Core2 Legacy — private compatibility and distribution channel
 
-**Availability:** implemented in the locally delivered Homebrew Pool **v0.3.7 Hotfix 1, build 38**. Public release publication is subject to the verified artifacts and source matching that build. The channel is **OFF by default**.
+**Availability:** included in the verified [official Homebrew Pool v0.3.7 Hotfix 1, build 38 release](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.7). The private channel remains **OFF by default**; publishing a DMG does not enroll any machine or authorize a Core2 bottle.
 
 ## Purpose and separation
 

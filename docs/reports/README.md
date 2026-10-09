@@ -1,6 +1,6 @@
 # Local validation evidence
 
-**Scope note:** these evidence files accompany the published v0.3.6 distribution. The separately built v0.3.7 Hotfix 1, build 38, requires its own locally verified receipts, source parity, test reports and notarization assets before GitHub release publication. See [v0.3.7 checklist](../../RELEASE_CHECKLIST_0.3.7.md). Do not present the v0.3.6 receipts as proof for build 38.
+**Scope note:** these files contain the historical v0.3.6 validation evidence, not the new build 38 receipts. The v0.3.7 Hotfix 1 build 38 signed/notarized distribution and separate verification files are available in the [published v0.3.7 release](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.7). Do not present v0.3.6 test reports as proof for build 38; see the [v0.3.7 checklist](../../RELEASE_CHECKLIST_0.3.7.md).
 
 [Home](../../README.md) · [Scope and limitations](../../VALIDATION.md)
 

@@ -1,8 +1,8 @@
-# Validation — published v0.3.6 and pending v0.3.7 evidence
+# Validation — v0.3.7 distribution checks and historical v0.3.6 evidence
 
-**Scope:** the results further down are from the published v0.3.6 release and must not be silently attributed to v0.3.7. The v0.3.7 Hotfix 1 build 38 handover reports **87 automated checks** plus one compiled GUI dispatch smoke test; the local source, receipts, DMG SHA-256, signature and notarization records must be re-checked at publication. A real Homebrew upgrade and native Core2 bottle compatibility were not established by those tests. See [v0.3.7 release notes](RELEASE_NOTES_0.3.7.md) and [release checklist](RELEASE_CHECKLIST_0.3.7.md).
+**Current release (v0.3.7 Hotfix 1, build 38):** the original DMG SHA-256, version/build identity, Developer ID signature, Gatekeeper acceptance and stapled notarization were verified locally on October 9, 2026. All seven GitHub release assets were downloaded and checked against the distributed SHA256SUMS. The local handover reports **87 automated checks** plus one compiled GUI dispatch smoke test; those results have not been independently rerun during publication. Real Homebrew Update & Upgrade and native Core2 bottle execution remain unverified. See [the official v0.3.7 release](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.7), [the attached build 38 verification archive](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.7/) and [the release checklist](RELEASE_CHECKLIST_0.3.7.md). **The detailed results below are specific to the earlier v0.3.6 package and must not be attributed to v0.3.7.**
 
-## Scope of distribution verification
+## Historical v0.3.6 distribution verification
 
 This edition changes license/documentation and distribution packaging only.
 The v0.3.6 application binary is unchanged; the 201-test/13-GUI results below

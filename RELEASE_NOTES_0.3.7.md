@@ -11,7 +11,7 @@
 
 ## Validation and limitations
 
-The local handover reports 87 automated tests and a compiled-app GUI smoke test (healthy status, Cancel, confirmation forwarding, later error display and menu placement). The handover reports Developer ID signing, Apple notarization/stapling and Gatekeeper acceptance; **the original artifacts and receipts must be independently checked before publication**. Those checks do not certify a real Homebrew upgrade or real Core2 bottle execution.
+The local handover reports 87 automated tests and a compiled-app GUI smoke test (healthy status, Cancel, confirmation forwarding, later error display and menu placement). The published 0.3.7 DMG was independently checked on the iMac for version/build 0.3.7/38, Developer ID code signature, Gatekeeper acceptance, notarization/stapling and the original SHA-256. The seven release assets were downloaded from GitHub and passed SHA-256 checks. Those checks do not certify a real Homebrew upgrade or real Core2 bottle execution.
 
 The private Core2 channel ships disabled and without machines or approved artifacts. The new private server requires separate deployment, TLS, machine enrollment and administrative review. No automatic global fallback; Auto-import remains OFF.
 

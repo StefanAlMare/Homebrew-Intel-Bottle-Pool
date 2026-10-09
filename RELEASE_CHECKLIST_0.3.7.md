@@ -1,6 +1,6 @@
 # Publication checklist — v0.3.7 Hotfix 1, build 38
 
-**Release published after source, signature and downloaded-asset verification.** Never mark the release as published until real artifacts have been verified and attached to the correct GitHub release.
+**Publication confirmed — October 9, 2026:** [official v0.3.7 Hotfix 1 release](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.7) (GitHub Latest, not a draft or prerelease), seven uploaded assets, verified build 38 DMG signature, Gatekeeper and stapled notarization, and SHA-256 verification of all downloaded assets. The checklist below records the required gates; the release does not claim unperformed native Core2 or fleet tests.
 
 1. Locate the original iMac local delivery `Homebrew-Pool-0.3.7-Hotfix1-DMG/` and inspect `Homebrew-Pool-0.3.7-hotfix1.dmg`, `Source/`, `Verification/`, `Read Me.txt`, `Core2 Legacy Guide.txt` and `SHA256SUMS.txt`.
 2. Verify the DMG SHA-256 and embedded application: version **0.3.7**, `CFBundleVersion=38`, Developer ID Application signature and actual notarization/stapling/Gatekeeper evidence. Inspect SourceManifest and source/runtime identity. Do not substitute earlier build 37 or v0.3.6 assets.

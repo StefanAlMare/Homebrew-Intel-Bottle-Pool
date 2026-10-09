@@ -38,7 +38,7 @@ New in 0.3.7: separate private Core2 Legacy channel, explicit machine authorizat
 | Understand the buttons | Read the [User guide](USER_GUIDE.md): Pause, Resume, imports and recovery. |
 | Plan Core2 Legacy deployment | Read the [Core2 Legacy guide](CORE2_LEGACY.md); enrollment is explicit and separate from the global pool. |
 | Use an older Intel Mac | Read [compatibility](#compatibility-and-older-intel-macs) before sharing bottles. |
-| Audit the release | Read [changes](RELEASE_NOTES.md), [validation](VALIDATION.md), [parity](PARITY_REPORT.md) and [license](LICENSE). |
+| Audit v0.3.7 | Read [release notes](RELEASE_NOTES_0.3.7.md), [build 38 verification checklist](RELEASE_CHECKLIST_0.3.7.md), [historical v0.3.6 validation](VALIDATION.md) and [license](LICENSE). |
 
 **Release status:** v0.3.7 Hotfix 1 is the current regular release, locally built, Developer ID signed and Apple notarized. v0.3.6 remains available for rollback. Local regression and GUI checks passed. Physical HP, MacBook Pro 2012 and Core 2 Quad Q9300 acceptance testing is not documented as complete; see [validation](VALIDATION.md) for the exact coverage and limitations. Historical [v0.3.5](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.5) remains available for rollback under the terms that accompanied it.
 
@@ -143,7 +143,7 @@ A pool is for trusted peers. Hash/context checks do not make a malicious produce
 
 ## Software license and project-wide permissions
 
-The following rules concern the original **Homebrew Intel Bottle Pool software as a whole**, including future releases: the macOS app, server, command-line client, scripts, build tooling, tests, documentation and corresponding distributions. They are not a special restriction on v0.3.6 alone. The current [LICENSE](LICENSE) governs copies distributed under its terms; earlier distributions retain their accompanying licenses and valid prior grants.
+The following rules concern the original **Homebrew Intel Bottle Pool software as a whole**, including future releases: the macOS app, server, command-line client, scripts, build tooling, tests, documentation and corresponding distributions. These terms are not a restriction for one version only. The current [LICENSE](LICENSE) governs copies distributed under its terms; earlier distributions retain their accompanying licenses and valid prior grants.
 
 **Copyright © 2026 StefanAlMare. All rights reserved. Not open source; not MIT.**
 

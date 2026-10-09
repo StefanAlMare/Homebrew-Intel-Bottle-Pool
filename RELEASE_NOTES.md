@@ -1,5 +1,7 @@
 # Homebrew Intel Bottle Pool v0.3.6 — preview
 
+**Current download:** [Complete v0.3.6 License 1.1 macOS app (DMG)](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg) · [ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip) · [SHA256SUMS](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt) · [All release assets](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1). The License 1.1 edition includes the full app; it is not a license-only package. This preview does not replace v0.3.5 as GitHub's latest stable release until acceptance tests are complete.
+
 ## License revision 1 — IMPORTANT
 
 **Copyright © 2026 StefanAlMare. All rights reserved. Source-available, NOT open source.**

@@ -14,6 +14,16 @@ Trusted Intel Macs share software they have already built or downloaded. A Mac f
 
 Created and maintained by **StefanAlMare**, developed together with **ChatGPT by OpenAI**. Independent of Homebrew; not affiliated with or endorsed by Homebrew.
 
+## Download the current v0.3.6 preview
+
+**The complete v0.3.6 app is available now** in the License 1.1 edition. “License 1.1 edition” describes the permissions bundled with the app; it is **not** a license-only download.
+
+- **[Download v0.3.6 for Intel macOS (standard DMG)](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg)**
+- [Alternative application ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip) · [Source archive](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard-source.zip) · [SHA-256 checksums](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt)
+- [Release description and supporting files](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1)
+
+**Why GitHub may display v0.3.5 as “Latest”:** v0.3.6 and its License 1.1 edition are deliberately marked **pre-release** until physical acceptance tests are complete. v0.3.5 remains the latest *stable* release; this does not mean the v0.3.6 DMG or ZIP is missing. Do not use a generic `/releases/latest` link to find the preview. Keep the older release available for rollback.
+
 ## Start here
 
 | What do you need? | Your next step |

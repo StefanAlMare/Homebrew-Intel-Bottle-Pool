@@ -2,9 +2,9 @@
 
 [Home](README.md) · [Server setup](SERVER_SETUP.md) · [User guide](USER_GUIDE.md)
 
-**v0.3.7 Hotfix 1 (build 38) has a locally prepared DMG, but public GitHub assets have not yet been verified or published.** Until the release is visible, use the v0.3.6 links below. Do not install a package named v0.3.7 unless its Developer ID signature, Gatekeeper/notarization evidence and full SHA-256 match have been independently verified. For the separate Core2 setup see [CORE2_LEGACY.md](CORE2_LEGACY.md).
+**Official v0.3.7 download:** [signed and notarized DMG](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.7/Homebrew-Intel-Bottle-Pool-v0.3.7-Hotfix1-build38.dmg) · [release and checksums](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.7).
 
-Version 0.3.6 is the current regular release. Physical HP / MacBook Pro 2012 / Q9300 acceptance testing is not documented as complete; see [VALIDATION.md](VALIDATION.md).
+Version 0.3.7 Hotfix 1, build 38 is the current regular release. The v0.3.6 download details below are retained for rollback. Physical HP / MacBook Pro 2012 / Q9300 acceptance testing is not documented as complete; see [VALIDATION.md](VALIDATION.md).
 
 **Current v0.3.6 download (complete app):** [v0.3.6 License 1.1 DMG](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg), [alternative ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip), [SHA256SUMS.txt](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt). [Release details](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1). The older v0.3.5 release remains available for rollback.
 

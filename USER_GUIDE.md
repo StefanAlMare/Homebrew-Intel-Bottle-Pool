@@ -1,4 +1,4 @@
-# User guide — v0.3.6
+# User guide — v0.3.7 Hotfix 1 (build 38)
 
 [Home](README.md) · [Installation](INSTALLATION.md) · [Server](SERVER_SETUP.md) · [Import evidence](IMPORT_PROVENANCE.md)
 

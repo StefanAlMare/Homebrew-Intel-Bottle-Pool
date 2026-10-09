@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.7 Hotfix 1, build 38 — October 9, 2026 (local delivery; GitHub publication pending)
+## v0.3.7 Hotfix 1, build 38 — October 9, 2026 (official GitHub release)
 
 - Introduce a separately configured **Core2 Legacy** panel and private `/v2/core2-legacy` protocol with machine enrollment, CPU-target checks, evidence-based artifact approval, and explicit publish/download/build actions. Global Pool data and Core2 state remain separate; auto-import remains OFF.
 - Repair GUI-to-backend per-operation repository-access authorization for Update & Upgrade, Install, Retry/Resume and Maintenance. No persistent blanket authorization is written to config or queue.

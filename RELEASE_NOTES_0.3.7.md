@@ -1,6 +1,6 @@
 # Homebrew Intel Bottle Pool v0.3.7 — Hotfix 1 (build 38)
 
-**Publication status:** locally delivered October 9, 2026; the public GitHub release assets are **not yet verified as published**. Do not describe this as a downloadable release until authentic signed/notarized artifacts, matching source and checksums have been uploaded and checked. This is a version history document, not a downloadable binary.
+**Publication status:** official regular release at https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.7; locally signed and notarized build 38, with authenticated GitHub assets and SHA-256 checksums.
 
 ## Included changes
 

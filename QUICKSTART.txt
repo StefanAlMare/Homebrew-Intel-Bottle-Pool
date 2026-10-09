@@ -1,11 +1,16 @@
-Homebrew Intel Bottle Pool — current public release 0.3.6
+Homebrew Intel Bottle Pool v0.3.7 Hotfix 1 — BUILD 38
 
-Next release note (October 9, 2026): Homebrew Pool 0.3.7 Hotfix 1,
-build 38, is delivered locally but NOT YET published as a verified GitHub
-release. Do not mistake the v0.3.6 DMG for build 38. Publish only the
-genuine signed/notarized 0.3.7 binary after source and checksum validation.
-Core2 Legacy is introduced in the local build 38 and is disabled by default.
-See RELEASE_NOTES_0.3.7.md and CORE2_LEGACY.md in the repository.
+Current official DMG: https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.7/Homebrew-Intel-Bottle-Pool-v0.3.7-Hotfix1-build38.dmg
+Checksums: https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.7/SHA256SUMS.txt
+Release: https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.7
+
+Finish current Homebrew work and quit before replacing the application.
+Preserve configuration, authentication, queue, spool and previous binary.
+Core2 Legacy is separate, opt-in and disabled by default.
+Personal non-commercial use only without prior written permission;
+read LICENSE for the controlling terms.
+
+The following v0.3.6 instructions remain for rollback/reference.
 
 Home / guides
   https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool

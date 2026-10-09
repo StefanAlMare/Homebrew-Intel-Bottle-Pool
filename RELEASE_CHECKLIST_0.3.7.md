@@ -1,6 +1,6 @@
 # Publication checklist — v0.3.7 Hotfix 1, build 38
 
-**Not yet completed by this repository documentation update.** Never mark the release as published until real artifacts have been verified and attached to the correct GitHub release.
+**Release published after source, signature and downloaded-asset verification.** Never mark the release as published until real artifacts have been verified and attached to the correct GitHub release.
 
 1. Locate the original iMac local delivery `Homebrew-Pool-0.3.7-Hotfix1-DMG/` and inspect `Homebrew-Pool-0.3.7-hotfix1.dmg`, `Source/`, `Verification/`, `Read Me.txt`, `Core2 Legacy Guide.txt` and `SHA256SUMS.txt`.
 2. Verify the DMG SHA-256 and embedded application: version **0.3.7**, `CFBundleVersion=38`, Developer ID Application signature and actual notarization/stapling/Gatekeeper evidence. Inspect SourceManifest and source/runtime identity. Do not substitute earlier build 37 or v0.3.6 assets.

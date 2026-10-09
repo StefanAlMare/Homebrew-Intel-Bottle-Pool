@@ -1,4 +1,4 @@
-**Release history:** the independently built [v0.3.7 Hotfix 1 (build 38)](RELEASE_NOTES_0.3.7.md) is documented separately and awaits verified GitHub asset publication. This page remains the release notes for the last published v0.3.6 package.
+**Release history:** the independently built [v0.3.7 Hotfix 1 (build 38)](RELEASE_NOTES_0.3.7.md) is documented separately and has been officially published with verified GitHub assets. This page remains the release notes for the last published v0.3.6 package.
 
 # Homebrew Intel Bottle Pool v0.3.6
 

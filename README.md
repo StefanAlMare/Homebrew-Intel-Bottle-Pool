@@ -1,6 +1,6 @@
 # Homebrew Intel Bottle Pool
 
-**Latest published release: v0.3.6 · v0.3.7 Hotfix 1 (build 38) prepared locally**
+**Latest published release: v0.3.7 Hotfix 1 (build 38)**
 
 > Build once. Reuse safely across compatible Intel Macs.
 
@@ -8,21 +8,22 @@ Trusted Intel Macs share software they have already built or downloaded. A Mac f
 
 Created and maintained by **StefanAlMare**, developed together with **ChatGPT by OpenAI**. Independent of Homebrew; not affiliated with or endorsed by Homebrew.
 
-## v0.3.7 Hotfix 1 (build 38) — publication in preparation
+## Download v0.3.7 Hotfix 1 — build 38
 
-The local v0.3.7 Hotfix 1 build includes the private **Core2 Legacy** management panel, separate machine authorization, and a fix for passing explicit user confirmation to Homebrew operations. The signed/notarized local delivery and its source/evidence folder must be verified before publishing a GitHub release. **Until the authentic v0.3.7 artifacts are uploaded and checked, v0.3.6 remains the latest downloadable GitHub release.**
+**v0.3.7 Hotfix 1 is the current official release.**
 
-- [v0.3.7 changes and outstanding checks](RELEASE_NOTES_0.3.7.md)
-- [Core2 Legacy guide](CORE2_LEGACY.md)
-- [Server-next architecture and deployment distinction](SERVER_NEXT.md)
-- [Security and responsible disclosure](SECURITY.md)
-- [Release verification checklist](RELEASE_CHECKLIST_0.3.7.md)
+- **[Download signed and notarized Intel macOS DMG](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.7/Homebrew-Intel-Bottle-Pool-v0.3.7-Hotfix1-build38.dmg)**
+- [Application ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.7/Homebrew-Intel-Bottle-Pool-v0.3.7-Hotfix1-build38-app.zip) · [Complete source ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.7/Homebrew-Intel-Bottle-Pool-v0.3.7-Hotfix1-build38-source.zip) · [SHA-256 checksums](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.7/SHA256SUMS.txt)
+- [Release notes and verification assets](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.7)
+- [Core2 Legacy documentation](CORE2_LEGACY.md)
 
-**Next client release (planned, not yet shipped):** v0.3.8 will address oversized error dialogs, dependency-graph validation for whole Homebrew batches, duplicate Start at Login instances, and fast catalog-based reuse/reconciliation. None of those fixes should be attributed to v0.3.7.
+New in 0.3.7: separate private Core2 Legacy channel, explicit machine authorization, CPU profiles, and the build 38 GUI authorization hotfix. Existing configuration and global Pool operations are preserved.
 
-## Download v0.3.6
+**Next planned version:** v0.3.8 will address general dependency planning, error dialogs, duplicate Start at Login instances, fast batch catalog consumption and final publication reconciliation.
 
-**v0.3.6 is the current official release.** The DMG and ZIP contain the complete application. The `license.1` filename suffix identifies the accompanying license revision; it is not a license-only download.
+## Previous release v0.3.6
+
+**v0.3.6 remains available for rollback.** The DMG and ZIP contain the complete application. The `license.1` filename suffix identifies the accompanying license revision; it is not a license-only download.
 
 - **[Download v0.3.6 for Intel macOS (standard DMG)](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg)**
 - [Alternative application ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip) · [Source archive](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard-source.zip) · [SHA-256 checksums](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt)
@@ -32,14 +33,14 @@ The local v0.3.7 Hotfix 1 build includes the private **Core2 Legacy** management
 
 | What do you need? | Your next step |
 | --- | --- |
-| Install or upgrade the app | [Download v0.3.6 — License 1.1 edition](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1), then follow [Install / Upgrade](#install--upgrade). |
+| Install or upgrade the app | [Download v0.3.7 Hotfix 1](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.7), then follow [Install / Upgrade](#install--upgrade). |
 | Create a private pool | Follow [Server setup](SERVER_SETUP.md), then enroll Macs with [Installation](INSTALLATION.md). |
 | Understand the buttons | Read the [User guide](USER_GUIDE.md): Pause, Resume, imports and recovery. |
 | Plan Core2 Legacy deployment | Read the [Core2 Legacy guide](CORE2_LEGACY.md); enrollment is explicit and separate from the global pool. |
 | Use an older Intel Mac | Read [compatibility](#compatibility-and-older-intel-macs) before sharing bottles. |
 | Audit the release | Read [changes](RELEASE_NOTES.md), [validation](VALIDATION.md), [parity](PARITY_REPORT.md) and [license](LICENSE). |
 
-**Release status:** v0.3.6 is the current regular release, locally built, Developer ID signed and Apple notarized. Local regression and GUI checks passed. Physical HP, MacBook Pro 2012 and Core 2 Quad Q9300 acceptance testing is not documented as complete; see [validation](VALIDATION.md) for the exact coverage and limitations. Historical [v0.3.5](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.5) remains available for rollback under the terms that accompanied it.
+**Release status:** v0.3.7 Hotfix 1 is the current regular release, locally built, Developer ID signed and Apple notarized. v0.3.6 remains available for rollback. Local regression and GUI checks passed. Physical HP, MacBook Pro 2012 and Core 2 Quad Q9300 acceptance testing is not documented as complete; see [validation](VALIDATION.md) for the exact coverage and limitations. Historical [v0.3.5](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.5) remains available for rollback under the terms that accompanied it.
 
 ## How it works
 
@@ -74,11 +75,11 @@ v0.3.5 provenance, bounded recovery, nested-dependency attribution, Retry, Repai
 
 Requirements: Intel x86_64, **macOS 12+ for the GUI**, Homebrew, Python 3.9+, and Command Line Tools for source builds. The app does not silently install prerequisites. Each formula's supported OS/CPU still applies.
 
-1. Download the **standard DMG** and **SHA256SUMS.txt** from [v0.3.6 — License 1.1 edition](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1).
+1. Download the **standard DMG** and **SHA256SUMS.txt** from [v0.3.7 Hotfix 1](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.7).
 2. Calculate the downloaded DMG's hash and compare the **entire digest** with its matching line in SHA256SUMS:
 
    ```sh
-   shasum -a 256 Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg
+   shasum -a 256 Homebrew-Intel-Bottle-Pool-v0.3.7-Hotfix1-build38.dmg
    ```
 
    A full `shasum -c` check requires downloading every listed asset.

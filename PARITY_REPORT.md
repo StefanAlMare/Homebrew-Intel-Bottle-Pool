@@ -1,4 +1,4 @@
-# v0.3.5 parity — v0.3.6 standard preview
+# v0.3.5 parity — v0.3.6 standard release
 
 Base: complete official v0.3.5 at commit 5158c90fb92db54cb0d765a02e0ef3ec56ed0da3. The local audit compared 61 official files with the verified source archive/commit snapshot.
 

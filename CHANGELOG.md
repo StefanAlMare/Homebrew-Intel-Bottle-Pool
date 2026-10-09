@@ -7,7 +7,7 @@
 - Preserve GitHub platform rights, third-party licenses and valid historical grants; do not rewrite old tags or claim retroactive revocation.
 - Refresh distribution license/readme/checksums locally without changing the v0.3.6 application binary or production state. Publish a clearly named license-revision edition.
 
-## 0.3.6 preview — October 8, 2026
+## 0.3.6 — October 8, 2026
 
 - Add persistent Safe Pause / Resume at a current-formula safe boundary, separate Stop Now and active sleep prevention.
 - Add existing bottle Scan / Review / Import, SHA-256/provenance/dependency/CPU validation, deduplication and atomic publication.
@@ -18,7 +18,7 @@
 - Restore the standard DMG Applications shortcut and legacy settings/state paths without automatic installation or data reset.
 - Validate 201 local regression tests and 13 compiled-GUI workflow checks; publish exact reports and Apple receipts. Physical HP/MBP2012/Q9300 tests remain pending.
 - Refresh the English homepage, green PNG/SVG diagram, installation/user/server guides, release notes and validation/parity reports.
-- Publish locally built signed/notarized artifacts and full source only with separate authorization. No Actions, CI or remote builds. Keep preview status.
+- Publish locally built signed/notarized artifacts and full source only with separate authorization. No Actions, CI or remote builds. The current license-revision distribution was subsequently promoted to regular release status; outstanding physical acceptance testing remains disclosed.
 
 ## 0.3.5 — October 8, 2026
 

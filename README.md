@@ -1,12 +1,6 @@
 # Homebrew Intel Bottle Pool
 
-**Version 0.3.6 preview · License revision 1 · Intel macOS client**
-
-> **Copyright © 2026 StefanAlMare. All rights reserved.**
-> **Personal, non-commercial use of the official unmodified app/server is permitted.**
-> **Commercial/business use, source-code reuse, modification, integration into other projects, redistribution and derivative works require StefanAlMare's PRIOR EXPLICIT WRITTEN PERMISSION.**
-> Public source is not an open-source grant. Attribution or a fork is not consent.
-> See the [complete license, version 1.1](LICENSE).
+**Version 0.3.6 · Intel macOS client and private bottle pool**
 
 > Build once. Reuse safely across compatible Intel Macs.
 
@@ -14,15 +8,13 @@ Trusted Intel Macs share software they have already built or downloaded. A Mac f
 
 Created and maintained by **StefanAlMare**, developed together with **ChatGPT by OpenAI**. Independent of Homebrew; not affiliated with or endorsed by Homebrew.
 
-## Download the current v0.3.6 preview
+## Download v0.3.6
 
-**The complete v0.3.6 app is available now** in the License 1.1 edition. “License 1.1 edition” describes the permissions bundled with the app; it is **not** a license-only download.
+**v0.3.6 is the current official release.** The DMG and ZIP contain the complete application. The `license.1` filename suffix identifies the accompanying license revision; it is not a license-only download.
 
 - **[Download v0.3.6 for Intel macOS (standard DMG)](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg)**
 - [Alternative application ZIP](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.zip) · [Source archive](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard-source.zip) · [SHA-256 checksums](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt)
 - [Release description and supporting files](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.6-license.1)
-
-**Why GitHub may display v0.3.5 as “Latest”:** v0.3.6 and its License 1.1 edition are deliberately marked **pre-release** until physical acceptance tests are complete. v0.3.5 remains the latest *stable* release; this does not mean the v0.3.6 DMG or ZIP is missing. Do not use a generic `/releases/latest` link to find the preview. Keep the older release available for rollback.
 
 ## Start here
 
@@ -34,7 +26,7 @@ Created and maintained by **StefanAlMare**, developed together with **ChatGPT by
 | Use an older Intel Mac | Read [compatibility](#compatibility-and-older-intel-macs) before sharing bottles. |
 | Audit the release | Read [changes](RELEASE_NOTES.md), [validation](VALIDATION.md), [parity](PARITY_REPORT.md) and [license](LICENSE). |
 
-**Release status:** v0.3.6 is a locally built, Developer ID signed, Apple-notarized **preview**, not a stable-release claim. Local regression and GUI checks passed. Physical HP, MacBook Pro 2012 and Core 2 Quad Q9300 tests remain pending. The **License 1.1 edition** keeps the same runtime and updates permission terms/distribution notices. Historical [v0.3.5](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.5) remains available under its accompanying license; old tags and valid prior grants are not rewritten.
+**Release status:** v0.3.6 is the current regular release, locally built, Developer ID signed and Apple notarized. Local regression and GUI checks passed. Physical HP, MacBook Pro 2012 and Core 2 Quad Q9300 acceptance testing is not documented as complete; see [validation](VALIDATION.md) for the exact coverage and limitations. Historical [v0.3.5](https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/tag/v0.3.5) remains available for rollback under the terms that accompanied it.
 
 ## How it works
 
@@ -129,19 +121,21 @@ Reuse checks macOS bottle tag, architecture, prefix/Cellar, exact recipe, versio
 
 **Stop Now** cancels immediately; it is not safe pause. Repair, Maintenance Console and Open logs remain available. Queue cancellation is explicit, not a routine UI refresh. See [USER_GUIDE.md](USER_GUIDE.md).
 
-## Trust, development and license
+## Security and trusted distribution
 
 A pool is for trusted peers. Hash/context checks do not make a malicious producer safe. The bearer token is shared access, not per-user permissions. Protect tokens, TLS keys, config and backups. Mutable `latest` / `no_check` Casks remain upstream-only.
 
 [Validation](VALIDATION.md) states what was run and what was not. [Releasing](RELEASING.md) documents local-only builds and separately authorized uploads. No GitHub Actions, CI or hosted builds.
 
-## License and source-code permission
+## Software license and project-wide permissions
+
+The following rules concern the original **Homebrew Intel Bottle Pool software as a whole**: the macOS app, server, command-line client, scripts, build tooling, tests, documentation and corresponding distributions. They are not a special restriction on v0.3.6 alone. The current [LICENSE](LICENSE) governs copies distributed under its terms; earlier distributions retain their accompanying licenses and valid prior grants.
 
 **Copyright © 2026 StefanAlMare. All rights reserved. Not open source; not MIT.**
 
 | Use | Permission |
 | --- | --- |
-| Run the official unmodified app/server for personal, non-commercial use | Allowed without charge under LICENSE 1.1; ordinary documented configuration and private backups are allowed. |
+| Run the official unmodified app/server for personal, non-commercial use | Allowed without charge for copies distributed under the current LICENSE; ordinary documented configuration and private backups are allowed. |
 | Any commercial, professional or business use, including internal business operation | **Prior explicit written permission from StefanAlMare required.** |
 | Reuse or copy code into another project; integrate, modify or create derivative work | **Prior explicit written permission required, even for non-commercial projects.** |
 | Repackage, redistribute, mirror, sublicense, sell or host for third parties | **Prior explicit written permission required.** |

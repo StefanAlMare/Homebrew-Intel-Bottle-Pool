@@ -22,7 +22,7 @@ Changed binaries need new signing/notarization, never stale tickets. Documentati
 
 ## Authorized publication
 
-Confirm repository/default branch/current head; use **stable**, not main. Check zero workflows, preserve unrelated files, use expected-parent non-force update, add no workflows. For the next separately authorized release, create a new version tag; never move or reuse the existing v0.3.6 tags. Upload locally built DMG/app ZIP/complete source ZIP/checksums/validation, and verify downloaded assets before publishing.
+Confirm repository/default branch/current head; use **stable**, not main. Check zero workflows, preserve unrelated files, use expected-parent non-force update, add no workflows. For the v0.3.7 Hotfix 1 public release, create a fresh tag **only at the commit containing the verified build 38 source**, then upload that exact locally signed/notarized DMG, matching app/source archives, SHA256SUMS, and verified validation receipts. Use the local [release checklist](RELEASE_CHECKLIST_0.3.7.md). Do not tag the older v0.3.6 source commit or reuse the prior DMG.
 
 v0.3.6 is a regular release; physical HP/MBP2012/Q9300 acceptance remains outstanding and must not be reported as completed. Apple notarization is not functionality/CPU approval. Legacy publish/package helpers intentionally do not automatically publish; credentials alone are not authorization. No production deployment.
 

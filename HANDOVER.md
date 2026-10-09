@@ -1,4 +1,6 @@
-# v0.3.6 standard release — handover
+# v0.3.6 standard release — historical handover
+
+**Latest local delivery:** v0.3.7 Hotfix 1, build 38; GitHub asset publication pending as of October 9, 2026. Read [v0.3.7 notes](RELEASE_NOTES_0.3.7.md), [Core2 guide](CORE2_LEGACY.md), [publication checklist](RELEASE_CHECKLIST_0.3.7.md) and [server-next status](SERVER_NEXT.md). The material below applies specifically to the historical published v0.3.6 application; do not confuse its tests or embedded sources with build 38.
 
 Finish current work before replacing an older app. In v0.3.6: Pause Safely, wait for Safely Paused, Quit. Open the standard DMG, drag Homebrew Pool.app onto Applications, choose Replace only when ready. Keep the previous binary.
 

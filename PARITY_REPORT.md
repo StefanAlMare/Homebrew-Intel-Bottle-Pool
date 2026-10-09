@@ -1,5 +1,7 @@
 # v0.3.5 parity — v0.3.6 standard release
 
+**Scope:** this parity report applies to v0.3.6 and the v0.3.5 comparison only. No source-code parity for the locally delivered v0.3.7 build 38 has been established by this report; see [v0.3.7 release verification requirements](RELEASE_CHECKLIST_0.3.7.md).
+
 Base: complete official v0.3.5 at commit 5158c90fb92db54cb0d765a02e0ef3ec56ed0da3. The local audit compared 61 official files with the verified source archive/commit snapshot.
 
 ## Findings

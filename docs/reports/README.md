@@ -1,5 +1,7 @@
 # Local validation evidence
 
+**Scope note:** these evidence files accompany the published v0.3.6 distribution. The separately built v0.3.7 Hotfix 1, build 38, requires its own locally verified receipts, source parity, test reports and notarization assets before GitHub release publication. See [v0.3.7 checklist](../../RELEASE_CHECKLIST_0.3.7.md). Do not present the v0.3.6 receipts as proof for build 38.
+
 [Home](../../README.md) · [Scope and limitations](../../VALIDATION.md)
 
 - [Regression summary](tests.json): exact count, duration and exit status.

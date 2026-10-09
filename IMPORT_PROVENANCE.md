@@ -1,5 +1,7 @@
 # Verified imports and producer evidence
 
+**Note on v0.3.7 Hotfix 1:** the separately configured [Core2 Legacy](CORE2_LEGACY.md) channel uses independent schema-2 policy, machine/role approval, full manifest-review hashes and native ISA evidence. Existing schema-1 global artifacts are **not** automatically promoted to Core2. A keg without producer proof remains unpublishable as a bottle.
+
 Official Homebrew bottles can be verified against the exact checksum in the
 current Homebrew formula metadata. A filename or an installed keg alone is never
 enough evidence for a local bottle.

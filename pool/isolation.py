@@ -1,4 +1,4 @@
-"""Opt-in test-data boundary; standard builds retain the legacy data paths."""
+"""Test-bundle data boundary, including explicit --config overrides."""
 import os
 from pathlib import Path
 from .common import PoolError

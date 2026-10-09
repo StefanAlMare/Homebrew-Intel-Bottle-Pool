@@ -19,6 +19,9 @@ from .common import CHUNK, PoolError, atomic_json, digest, fsync_dir, key_for, v
 class Store:
     def __init__(self, root, lease_seconds=180, max_bytes=20 * 1024**3):
         self.root = Path(root)
+        marker = self.root / "namespace.json"
+        if marker.exists() and json.loads(marker.read_text()).get("channel") != "global":
+            raise PoolError("Global server cannot reuse Core2 Legacy storage")
         self.root.mkdir(parents=True, exist_ok=True)
         self.objects = self.root / "artifacts"
         self.objects.mkdir(exist_ok=True)

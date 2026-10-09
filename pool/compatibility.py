@@ -27,7 +27,7 @@ def solutions(brew, name):
             "versioned_candidates": candidates,
             "options": [
                 "Use an artifact already verified for this exact CPU, macOS, prefix and dependency context.",
-                "With approval, try a source build targeting Core 2 (--build-bottle --bottle-arch=core2). Upstream minimum CPU requirements may still prevent it.",
+                "Use the private Core2 Legacy build-plan on an explicitly enrolled dedicated builder. Source builds need current repository-access authorization and native CPU validation; upstream minimum requirements may still prevent them.",
                 "Review a supported versioned formula listed below. A Python formula version is not a Git branch. Older does not automatically mean compatible or secure.",
                 "If upstream removed legacy CPU support, a reviewed source patch or separate legacy tap is a new task requiring approval.",
                 "Keep the queue paused or explicitly skip this item; never replace a dependency or downgrade silently."],

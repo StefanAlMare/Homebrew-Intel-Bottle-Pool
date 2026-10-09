@@ -30,6 +30,10 @@ class RemoteError(PoolError):
 
 class Client:
     def __init__(self, config):
+        if config.get("channel", "global") != "global":
+            raise PoolError("Use the separate Core2 Legacy client")
+        if config.get("auto_import_verified_bottles", False):
+            raise PoolError("Automatic bottle imports remain OFF in this release")
         require_private_path(config["state_dir"])
         self.config = config
         self.url = config["url"].rstrip("/")
@@ -42,6 +46,9 @@ class Client:
         if not self.token or any(character.isspace() for character in self.token):
             raise PoolError("The token must be a single non-empty value")
         self.state = Path(config["state_dir"]).expanduser()
+        marker = self.state / "namespace.json"
+        if marker.exists() and json.loads(marker.read_text()).get("channel") != "global":
+            raise PoolError("Global client cannot reuse Core2 Legacy state")
         self.state.mkdir(parents=True, exist_ok=True)
         self.spool = self.state / "spool"
         self.spool.mkdir(exist_ok=True)
@@ -76,6 +83,7 @@ class Client:
             return json.load(response)
 
     def lookup(self, manifest):
+        validate(manifest)
         try:
             result = validate(self.json_request("GET", "manifest/" + key_for(manifest)))
             if key_for(result) != key_for(manifest):
@@ -268,6 +276,7 @@ class Client:
         return results
 
     def local_match(self, expected):
+        validate(expected)
         for directory in self.spool.glob("entry-*"):
             path = directory / "manifest.json"
             if not path.exists():

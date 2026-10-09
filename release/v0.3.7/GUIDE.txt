@@ -1,0 +1,195 @@
+Homebrew Pool 0.3.7 — Hotfix 1, build 38
+9 octombrie 2026
+
+CE ESTE LIVRAT
+Actualizare locală a Homebrew Pool, cu fereastră Core2 Legacy, client și server
+privat v2, allowlist de mașini autentificate individual și filtre comune.
+Aplicația este compilată pentru x86_64 și arm64, cu minimum macOS 12 pentru
+interfață. Canalul Core2 acceptă exclusiv mașini native Intel Core 2 înrolate;
+Codul propriu al interfeței Intel este compilat explicit cu ținta CPU core2;
+bibliotecile sistemului rămân cele furnizate de macOS și cer testare nativă.
+pe Apple Silicon se poate deschide interfața, dar transferul Core2 este refuzat.
+Livrarea finală cere semnare Developer ID Application și notarizare Apple
+pentru aplicație și DMG. Rapoartele de livrare confirmă rezultatele efective.
+
+Aplicația existentă din /Applications NU a fost înlocuită. Nu a fost modificat
+niciun keg, Python, XZ, Tcl/Tk, EFI/OpenCore sau emulator Tahoe. Nu s-au executat
+comenzi Homebrew, Git sau operații pe repository-uri. Sursa Swift a fost citită
+dintr-o arhivă locală existentă; clientul de bază provine din aplicația instalată.
+Licența existentă este inclusă. Niciun serviciu persistent nu a fost instalat.
+
+INSTALARE ȘI SETĂRI
+Închide aplicația Homebrew Pool înainte de înlocuire. Deschide DMG-ul, apoi
+trage Homebrew Pool.app pe scurtătura Applications și confirmă înlocuirea.
+Pornește aplicația din Applications; apoi ejectează DMG-ul.
+Nu se rulează un installer și nu se șterg setări, tokenuri, spool sau cozi.
+Configurația existentă păstrează inclusiv căile personalizate către token,
+CA și state_dir. Coada întreruptă rămâne disponibilă, fără relansare automată.
+
+Pentru instalarea standard sunt păstrate:
+  ~/.config/intel-bottle-pool/config.json
+  ~/Library/Caches/IntelBottlePool/ (sau state_dir deja configurat)
+  ~/Library/Application Support/Homebrew Pool/
+  ~/Library/Logs/HomebrewIntelBottlePool/
+XDG_CONFIG_HOME explicit are prioritate. Copia 0.3.6 Test observată pe această
+mașină folosește datele din ~/Library/Application Support/Homebrew Pool 0.3.6 Test/.
+Această livrare păstrează profilul Test dacă acel config există; pe calculatoarele
+fără el folosește configurația standard. Nu copiază credențiale între profiluri.
+Label-ul Start at Login rămâne cel al profilului ales.
+
+Canalul Core2 are propriile date în:
+  ~/Library/Application Support/Homebrew Pool Core2 Legacy/
+Configurația/tokenul/spool-ul canalului global nu sunt refolosite de Core2.
+La început canalul este dezactivat, fără mașini sau artefacte aprobate.
+Auto-import verified bottles este OFF și blocat în interfață și în CLI.
+Dacă un config vechi are auto-import ON, clientul refuză operațiile până la
+oprirea explicită a acelei setări; instalarea nu rescrie config-ul existent.
+
+„Create disabled setup” creează numai configurația Core2, fără token.
+„Load approved setup” încarcă o configurație privată aleasă explicit.
+„Review hardware” citește observații de sistem, fără înrolare automată.
+„Verify bottle” verifică aprobarea, CPU/contextul și arhiva înainte de rețea.
+„Publish bottle” repetă verificările pe client și pe server și păstrează copia locală.
+„Download approved bottle” pregătește copia verificată, fără instalare.
+„Review source build plan” afișează comenzile aprobate, fără a executa Homebrew.
+
+ÎNROLARE ȘI AUTORIZARE
+Nu există înrolare automată sau mașini reale precompletate, inclusiv P5Q-Alex.
+Administratorul trebuie să furnizeze o politică schema 2/channel core2-legacy,
+pool_id privat, revision, machines, reviewer_keys și reviews. Fișierele de
+politică/config/manifest/plan și token trebuie să aparțină utilizatorului
+serviciului și să fie private (0600). Directorul de stare trebuie să fie 0700.
+Toate modificările ulterioare ale politicii sunt reîncărcate la fiecare operație;
+revocarea unei mașini ori retragerea unei aprobări blochează inclusiv commit-ul.
+
+Fiecare intrare machines are:
+  enabled: true
+  roles: listă din consume/publish/test/build
+  key_id: identificatorul administrativ al credențialei mașinii
+  credential_sha256: SHA-256 al unui token aleator unic, de cel puțin 32 caractere
+  platform_kind: hackintosh
+  native_evidence_sha256: hash-ul raportului hardware fizic revizuit
+  cpu_target: penryn sau conroe-merom
+  cpu: vendor GenuineIntel, family 6, model 23 pentru Penryn sau 15 pentru Conroe/Merom
+  native_features: instrucțiuni fizice revizuite
+  context: arch x86_64, macos_version, macos_build, prefix, cellar exacte
+  dedicated_build_host: true numai dacă este înrolat explicit pentru construcție
+
+Tokenul în clar rămâne în fișierul privat al mașinii. Serverul păstrează numai
+digestul. Tokenurile duplicate între mașini sunt refuzate. key_id nu este în
+această versiune o cheie criptografică hardware: autentificarea folosește tokenul
+unic peste HTTPS. Protejarea tokenului este necesară; clonarea lui împreună cu
+spoofing-ul observațiilor nu poate fi exclusă prin software-ul acestui client.
+Proba fizică nativă este o decizie administrativă explicită, nu o atestare
+hardware automată. Această limită nu trebuie confundată cu o garanție hardware.
+
+Profilul conroe-merom cere SSE2/SSE3/SSSE3/CX16. Profilul penryn cere și SSE4.1.
+POPCNT, SSE4.2, AVX/AVX2 și ISA necunoscută nu extind profilurile. Penryn nu este
+servit pe Conroe. Un artefact Conroe construit pe Penryn necesită și testul
+pe o mașină înrolată la ținta Conroe. Un test pe un Intel mai nou nu este dovadă.
+
+APROBAREA ARTEFACTELOR
+Manifestul v2 fixează formula complet calificată owner/tap/name, versiunea,
+revision/rebuild, filename/size/sha256, ținta/ISA, contextul, rețeta completă și
+cea încorporată, grafurile runtime/build/test, producătorul și proveniența.
+Proveniența include surse/patch-uri, compiler/toolchain/SDK, flag-uri reale,
+receipt/keg, log și identitățile dependențelor. Fiecare dependență are versiune,
+recipe_sha256, keg_tree_sha256, abi_sha256, artifact_key, review_sha256, channel
+și required_cpu_features. Planul independent fixează numele, versiunea,
+revision/rebuild, contextul, grafurile și cele două hash-uri de rețetă.
+
+validation cere isolated_pour/formula_test/linkage_test/isa_review true,
+mașină de test înrolată la CPU target și report_sha256.
+Administratorul fixează SHA-256 al JSON-ului canonic al ÎNTREGULUI manifest în
+reviews, cu status approved, policy_revision și reviewer_key_id autorizat.
+Nu este acceptat doar reviewed:true. Ledger-ul privat este rădăcina de încredere;
+această versiune nu implementează semnături de manifest independente de ledger.
+Hash-urile leagă datele de aprobare, dar nu demonstrează adevărul afirmațiilor
+din rapoarte. Administratorul trebuie să păstreze și să revizuiască rapoartele.
+
+Manifestele/probele vechi schema 1 nu sunt convertite sau reetichetate automat.
+Un build Python cu -march=penryn -mno-popcnt și PGO/ThinLTO NU trebuie descris
+cu compiler_flags goale. Python-ul existent pe P5Q nu a fost capturat/reconstruit.
+
+SERVER PRIVAT
+Serverul este inclus în clientul aplicației; poate fi copiat pe un host dedicat.
+Exemplu, după configurarea administrativă, cu propriul Python 3.9+ existent:
+  python3 -B entry.py legacy server --root /cale/privata/stare --policy /cale/privata/policy.json --bind 127.0.0.1 --port 8766
+Pentru acces de rețea sunt obligatorii --cert și --key, iar clienții folosesc
+HTTPS cu verificare de CA și hostname. HTTP este permis numai pe 127.0.0.1/::1.
+URL-ul clientului este un origin dedicat, fără subcale, userinfo, query sau
+fragment. Redirecturile sunt refuzate. Protocolul acceptă exclusiv
+/v2/core2-legacy; rutele v1/global nu sunt disponibile aici.
+
+Rădăcinile v1 și v2 nu sunt interschimbabile. Manifestele și blob-urile sunt
+imuabile, identificate prin hash-ul întregului manifest cu domeniu privat.
+Lease-urile sunt legate de obiect și mașina autentificată, cu expirare/revocare.
+Serverul reverifică checksum-ul, arhiva, rețeta și receipt-ul, chiar dacă un
+client ocolește propria verificare. Nu există fallback către canalul global.
+
+BUILD-URI ȘI INSTALĂRI
+Sunt implementate comenzi explicite legacy build-plan și legacy build.
+Un build cere un constructor dedicat cu rol build, allow_builds:true în config,
+o cerere exactă aprobată în build_reviews și autorizarea curentă a accesului la
+repository-uri prin --authorize-repository-access. Niciuna nu este furnizată
+implicit și niciun build nu a fost executat în această sesiune.
+
+Cererea fixează schema/pool/politică/mașină, formula/contextul/CPU/ISA, versiunea,
+grafurile, formula_file/formula_sha256, toolchain_file/toolchain_sha256,
+sdk_manifest_file/sdk_sha256, inventarele source_files și patch_files, compiler
+și flags cflags/cxxflags/ldflags. Fișierele trebuie să fie locale, regulate și
+identice cu hash-urile aprobate. Nu se acceptă -march=native sau ISA modernă.
+Homebrew poate controla flag-urile prin propriul mediu: candidatul înregistrează
+flag-urile cerute ca requested-only, fără a pretinde că au fost efectiv onorate.
+Invocările reale ale compilatorului și codul rezultat cer audit independent.
+
+Build-ul refuză formula dacă există deja orice instalare a ei; nu reconstruiește
+și nu înlocuiește keg-uri existente. Dependențele trebuie să existe și să aibă
+identitățile fixate. Se folosesc --ignore-dependencies și NO_AUTO_UPDATE; acestea
+nu elimină accesul intern Homebrew la repository, de aceea autorizarea explicită
+este obligatorie. Candidatul rezultat rămâne nepublicabil până la isolated pour,
+audit ISA și aprobarea independentă a manifestului complet.
+
+legacy install cere separat --authorize-repository-access. Verifică arhiva,
+contextul real Homebrew și dependențele runtime instalate, fără instalarea
+automată a dependențelor. Python@3.14, XZ și familia Tcl/Tk sunt protejate și
+refuzate pe această cale. Operațiile globale existente care pot atinge
+repository-uri sunt și ele blocate fără flag-ul explicit pentru operația curentă.
+
+VALIDARE EFECTUATĂ
+Testele pentru canalul Core2 și testele suplimentare de păstrare a datelor verifică: filtrul comun, transferuri locale reale HTTP și HTTPS/TLS,
+politici reîncărcate/revocări, lease-uri, checksum-uri, arhive, separarea v1/v2,
+protecțiile instalărilor și autorizarea/identitatea cererilor de build.
+Testele folosesc mașini sintetice și arhive valide cu date NEEXECUTABILE.
+Nu au compilat formule și nu demonstrează compatibilitatea fizică a unui bottle.
+Interfața a fost compilată universal și inspectată printr-o captură locală.
+Semnătura locală a fost verificată. Sursele/configurațiile originale auditate
+sunt comparate din nou prin SHA-256 înainte de livrare.
+
+ÎNAINTE DE UTILIZARE REALĂ
+Sunt încă necesare înrolarea administrativă a mașinilor reale, configurarea
+serverului privat și probe native cu bottles reale pe Penryn/Conroe. Build-ul
+de formule și instalarea efectivă rămân nevalidate pe hardware real. Canalul
+livrat rămâne dezactivat și Auto-import OFF. Nu este o înlocuire instalată sau
+o validare fizică pentru utilizare generală. DMG-ul este livrat numai local.
+
+CORECȚII HOTFIX 1
+Core2 Legacy este ultima funcție din meniu, după Maintenance Console și înainte
+de Quit. Deschide un panou separat; simpla apăsare nu înrolează mașini și nu
+pornește build-uri sau upgrade-uri.
+
+Confirmarea Update & Upgrade autorizează accesul Homebrew la repository-urile
+sale numai pentru procesul pornit atunci. Confirmarea este transmisă corect
+către CLI. Același mecanism se aplică acțiunilor explicite Install, Retry/Resume
+și Maintenance. Autorizarea nu este salvată în config/coadă și nu este acordată
+verificării automate a stării. CLI fără autorizare rămâne blocat.
+
+Erorile afișează diagnosticul procesului. Numărul de elemente restante este
+afișat numai dacă backend-ul raportează o coadă. O respingere înainte de pornire
+nu mai este descrisă ca o oprire a unei cozi salvate.
+
+Validare: testele automate ale canalului și ale păstrării datelor sunt completate
+cu regresii de dispatch GUI/CLI și test pe aplicația compilată pentru Healthy,
+Cancel, confirmare, eroare ulterioară și poziția meniului. Toate operațiile de
+Homebrew din aceste regresii sunt simulate; nu s-au folosit repository-uri,
+nu s-a lansat un upgrade real și nu s-a modificat aplicația instalată.

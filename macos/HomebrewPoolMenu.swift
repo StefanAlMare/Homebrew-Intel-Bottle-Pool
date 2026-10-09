@@ -3,7 +3,8 @@ import Darwin
 import Foundation
 import UserNotifications
 
-private let agentLabel = Bundle.main.bundleIdentifier ?? "com.stefanalmare.homebrew-intel-bottle-pool"
+private let upgradePaths = UpgradePaths()
+private let agentLabel = upgradePaths.agentLabel
 
 private struct PoolStatus: Decodable {
     let connected: Bool
@@ -73,6 +74,7 @@ private let actionMarker = "HOMEBREW_POOL_ACTION_REQUIRED="
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
+    private let core2Controller = Core2Controller()
     private let menu = NSMenu()
     private let statusLine = NSMenuItem(title: "Status: Starting…", action: nil, keyEquivalent: "")
     private let reviewItem = NSMenuItem(title: "Review Action…", action: #selector(reviewAction), keyEquivalent: "r")
@@ -148,18 +150,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return args[index + 1]
     }
 
-    private var configURL: URL {
-        if let xdg = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"], !xdg.isEmpty {
-            return URL(fileURLWithPath: xdg).appendingPathComponent("intel-bottle-pool/config.json")
-        }
-        return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".config/intel-bottle-pool/config.json")
+    private var lastOperationFailure: GUIFailure?
+    private var upgradeSmokeConfirmation: NSApplication.ModalResponse?
+    private var upgradeSmokePhase = 0
+    private var upgradeSmokeDeadline = Date()
+    private var upgradeDispatchDirectory: String? {
+        let args = CommandLine.arguments
+        guard let index = args.firstIndex(of: "--upgrade-dispatch-smoke"), index + 1 < args.count else { return nil }
+        return args[index + 1]
     }
 
+    private var configURL: URL { upgradePaths.config }
     private var logURL: URL {
         if let directory = uiSmokeDirectory ?? workflowSmokeDirectory { return URL(fileURLWithPath: directory).appendingPathComponent("agent.log") }
-        return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/HomebrewIntelBottlePool/agent.log")
+        return upgradePaths.log
     }
 
     private var launchAgentURL: URL {
@@ -173,8 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var supportURL: URL {
         if let directory = uiSmokeDirectory ?? workflowSmokeDirectory { return URL(fileURLWithPath: directory).appendingPathComponent("support") }
-        return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Homebrew Pool")
+        return upgradePaths.support
     }
     private var runURL: URL { supportURL.appendingPathComponent("pending-run.json") }
 
@@ -191,7 +194,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let root = uiSmokeDirectory ?? workflowSmokeDirectory {
             environment["HOMEBREW_POOL_TEST_ROOT"] = root
         } else {
-            environment.removeValue(forKey: "HOMEBREW_POOL_TEST_ROOT")
+            if let root = upgradePaths.testRoot {
+                environment["HOMEBREW_POOL_TEST_ROOT"] = root.path
+            } else {
+                environment.removeValue(forKey: "HOMEBREW_POOL_TEST_ROOT")
+            }
+            environment["XDG_CONFIG_HOME"] = configURL.deletingLastPathComponent().deletingLastPathComponent().path
         }
         for (key, value) in extra { environment[key] = value }
         return environment
@@ -201,11 +209,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.accessory)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.imagePosition = .imageOnly
-        statusItem.button?.toolTip = "Homebrew Pool 0.3.6 — standard upgrade"
+        statusItem.button?.toolTip = "Homebrew Pool 0.3.7 — Core2 Legacy"
         buildMenu()
         menu.autoenablesItems = false
-        if uiSmokeDirectory == nil && workflowSmokeDirectory == nil {
+        if uiSmokeDirectory == nil && workflowSmokeDirectory == nil && !CommandLine.arguments.contains("--core2-ui-smoke") && upgradeDispatchDirectory == nil {
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--core2-ui-smoke"), index + 1 < CommandLine.arguments.count {
+            let output = CommandLine.arguments[index + 1]
+            NSApp.appearance = NSAppearance(named: .aqua)
+            core2Controller.open()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                do { try self.core2Controller.capturePreview(to: output) } catch { print(error) }
+                NSApp.terminate(nil)
+            }
+            return
+        }
+        if let directory = upgradeDispatchDirectory {
+            startUpgradeDispatchSmoke(directory)
+            return
         }
         restorePendingRun()
         restorePendingAction()
@@ -224,7 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.refreshStatus()
         }
         if !FileManager.default.fileExists(atPath: configURL.path) {
-            DispatchQueue.main.async { self.openSettings() }
+            DispatchQueue.main.async { self.core2Controller.open() }
         }
     }
 
@@ -251,8 +273,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(repairDependencyItem)
         repairStateItem.target = self
         menu.addItem(repairStateItem)
-        maintenanceItem.target = self
-        menu.addItem(maintenanceItem)
         menu.addItem(.separator())
         for item in [scanImportsItem, reviewImportsItem, importToPoolItem, captureFormulaItem, compatibilityItem, autoImportItem] {
             item.target = self
@@ -267,6 +287,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(openLogs)
         loginItem.target = self
         menu.addItem(loginItem)
+        menu.addItem(.separator())
+        maintenanceItem.target = self
+        menu.addItem(maintenanceItem)
+        let legacy = NSMenuItem(title: "Core2 Legacy…", action: #selector(Core2Controller.open), keyEquivalent: "k")
+        legacy.target = core2Controller
+        menu.addItem(legacy)
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
         quit.target = self
@@ -317,9 +343,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         FileManager.default.isExecutableFile(atPath: (path as NSString).expandingTildeInPath)
     }
 
-    private func clientArguments(_ command: [String]) -> (String, [String])? {
+    private func clientArguments(_ command: [String], userInitiated: Bool = false) -> (String, [String])? {
         guard let python = configuredPython(), let entry = bundledEntry() else { return nil }
-        return (python, ["-B", entry.path, "--config", configURL.path] + command)
+        return (python, GUICommand.arguments(entry: entry.path, config: configURL.path, command: command, userInitiated: userInitiated))
     }
 
     private func appendLog(_ text: String) {
@@ -402,7 +428,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func runInteractive(command: [String], activity title: String) {
         guard activeProcess == nil, settingsProcess == nil else { return }
         guard FileManager.default.fileExists(atPath: configURL.path) else { openSettings(); return }
-        guard let (executable, arguments) = clientArguments(command) else {
+        guard let (executable, arguments) = clientArguments(command, userInitiated: true) else {
             showAlert(title: "Cannot run Homebrew Pool", message: "Python 3.9 or newer was not found. Set the python path in the existing config if it is installed elsewhere.")
             return
         }
@@ -418,6 +444,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         stopping = false
         activeGroups.removeAll()
         activity = title
+        let previousRun = pendingRun
+        lastOperationFailure = nil
         let tracksQueue = command.first == "upgrade" || command.first == "install"
         activeQueueOperation = tracksQueue
         if tracksQueue {
@@ -501,7 +529,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     let state = RunState(status: "paused_error", failed_count: 1, remaining_count: 0,
                                          failures: [FailedItem(name: command.first ?? "command", kind: "command", error: String(detail.suffix(8000)))],
                                          current: "", command: command.first ?? "")
-                    self.pendingRun = PendingRun(state: state, command: command, activity: title)
+                    self.pendingRun = previousRun ?? PendingRun(state: state, command: command, activity: title)
                     self.savePendingRun()
                 } else if tracksQueue {
                     self.pendingRun = nil
@@ -518,7 +546,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                             self.showAlert(title: process.terminationStatus == 2 ? "Imports saved locally" : "Import not completed",
                                            message: process.terminationStatus == 2 ? "Verified bottles are saved in the local spool. Use Sync now when the pool is available." : "Some candidates could not be imported. Review Imports and the log show the details.")
                         } else {
-                            self.showAlert(title: "Paused — Error", message: "The operation stopped. Review Errors shows what failed. The remaining queue is saved.")
+                            let reported: RunState? = self.decodeMarker("HOMEBREW_POOL_RUN_STATE=", from: commandOutput)
+                            let failure = GUIFailure(command: command, output: String(data: commandOutput, encoding: .utf8) ?? "",
+                                                     exitCode: process.terminationStatus, remaining: reported?.remaining_count,
+                                                     failed: reported?.failed_count)
+                            self.lastOperationFailure = failure
+                            if self.upgradeDispatchDirectory == nil {
+                                self.showAlert(title: failure.title, message: failure.message)
+                            }
                         }
                     }
                 }
@@ -614,7 +649,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         importToPoolItem.isEnabled = importsEnabled
         captureFormulaItem.isEnabled = importsEnabled
         compatibilityItem.isEnabled = !busy && maintenanceProcess == nil && settingsProcess == nil
-        autoImportItem.isEnabled = !busy && pauseProcess == nil
+        autoImportItem.isEnabled = false
         settingsItem.isEnabled = !busy && settingsProcess == nil
     }
 
@@ -759,12 +794,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func refreshAutoImportState() {
-        guard let data = try? Data(contentsOf: configURL),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            autoImportItem.state = .off
-            return
-        }
-        autoImportItem.state = (object["auto_import_verified_bottles"] as? Bool) == true ? .on : .off
+        autoImportItem.state = .off
+        autoImportItem.title = "Auto-import verified bottles: OFF (locked)"
+        autoImportItem.isEnabled = false
     }
 
     @objc private func scanExistingBottles() {
@@ -833,10 +865,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func toggleAutoImport() {
-        let enable = autoImportItem.state != .on
-        autoImportItem.state = enable ? .on : .off
-        runInteractive(command: ["imports", "auto", enable ? "on" : "off"],
-                       activity: enable ? "Enabling verified bottle imports" : "Disabling automatic imports")
+        showAlert(title: "Auto-import remains OFF", message: "Automatic import is locked until Core2 Legacy validation is complete.")
     }
 
     private func decodeAction(from data: Data) -> PendingAction? {
@@ -958,12 +987,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func upgradeViaPool() {
         let alert = NSAlert()
         alert.messageText = "Update & Upgrade via Homebrew Pool?"
-        alert.informativeText = "This explicitly runs brew update and the pool-aware upgrade. It may download, build, install, and publish compatible artifacts. It is never run automatically."
+        alert.informativeText = "This runs brew update and the pool-aware upgrade, including reading and synchronizing Homebrew repositories for this operation. It may download, build, install, and publish compatible artifacts. It is never run automatically."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Update & Upgrade")
         alert.addButton(withTitle: "Cancel")
         NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertFirstButtonReturn {
+        let response = upgradeDispatchDirectory != nil ? (upgradeSmokeConfirmation ?? .alertSecondButtonReturn) : alert.runModal()
+        if response == .alertFirstButtonReturn {
             runInteractive(command: ["upgrade"], activity: "Busy/Building or Syncing")
         }
     }
@@ -1168,7 +1198,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func launchConsoleClient(_ command: [String], display: String) {
         guard maintenanceProcess == nil else { return }
         guard FileManager.default.fileExists(atPath: configURL.path) else { openSettings(); return }
-        guard let (executable, arguments) = clientArguments(command) else {
+        guard let (executable, arguments) = clientArguments(command, userInitiated: true) else {
             showAlert(title: "Cannot run maintenance", message: "Python 3.9 or newer was not found.")
             return
         }
@@ -1343,6 +1373,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             throw NSError(domain: "HomebrewPool", code: 2)
         }
         try data.write(to: url)
+    }
+
+    private func startUpgradeDispatchSmoke(_ directory: String) {
+        let root = URL(fileURLWithPath: directory).resolvingSymlinksInPath()
+        guard FileManager.default.fileExists(atPath: root.appendingPathComponent("test-fixture").path),
+              configURL.resolvingSymlinksInPath().path.hasPrefix(root.path + "/"),
+              let python = configuredPython(), URL(fileURLWithPath: python).resolvingSymlinksInPath().path.hasPrefix(root.path + "/") else {
+            fputs("Upgrade smoke requires an isolated fake backend\n", stderr); exit(1)
+        }
+        upgradeSmokeDeadline = Date().addingTimeInterval(30)
+        runStatus()
+        workflowTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            func require(_ condition: Bool, _ message: String) {
+                if !condition { fputs("Upgrade smoke failed: \(message)\n", stderr); exit(1) }
+            }
+            require(Date() < self.upgradeSmokeDeadline, "Timed out")
+            guard self.activeProcess == nil, self.statusProcess == nil else { return }
+            let calls = root.appendingPathComponent("upgrade-calls.jsonl")
+            if self.upgradeSmokePhase == 0 {
+                require(self.statusLine.title.contains("Healthy/Connected"), "Initial connection status")
+                let titles = self.menu.items.map { $0.title }
+                require(titles.firstIndex(of: "Core2 Legacy…") == titles.firstIndex(of: "Maintenance Console…").map { $0 + 1 }, "Core2 menu position")
+                require(titles.firstIndex(of: "Core2 Legacy…")! > titles.firstIndex(of: "Settings…")!, "Core2 must be at the bottom")
+                self.upgradeSmokeConfirmation = .alertSecondButtonReturn
+                self.upgradeViaPool()
+                require(self.activeProcess == nil && !FileManager.default.fileExists(atPath: calls.path), "Cancel started work")
+                self.upgradeSmokeConfirmation = .alertFirstButtonReturn
+                self.upgradeSmokePhase = 1
+                self.upgradeViaPool()
+            } else if self.upgradeSmokePhase == 1 {
+                require(FileManager.default.fileExists(atPath: calls.path), "Approved upgrade was not dispatched")
+                require(self.pendingRun == nil && self.lastOperationFailure == nil, "Approved upgrade failed")
+                _ = FileManager.default.createFile(atPath: root.appendingPathComponent("fail-upgrade").path, contents: Data())
+                self.upgradeSmokePhase = 2
+                self.upgradeViaPool()
+            } else {
+                require(self.lastOperationFailure?.message.contains("fixture update failure") == true, "Real diagnostic was hidden")
+                require(self.lastOperationFailure?.message.contains("queue is saved") == false, "Invented saved queue")
+                require(self.lastOperationFailure?.title == "Update & Upgrade failed", "Failure misclassified as a paused queue")
+                let report = ["healthy_connection_before_upgrade": true, "cancel_runs_nothing": true,
+                              "approved_upgrade_dispatched": true, "actual_failure_displayed": true,
+                              "core2_last_after_maintenance": true]
+                let data = try! JSONSerialization.data(withJSONObject: report, options: .prettyPrinted)
+                try! data.write(to: root.appendingPathComponent("upgrade-dispatch-smoke.json"))
+                self.workflowTimer?.invalidate()
+                NSApp.terminate(nil)
+            }
+        }
     }
 
     private func startWorkflowSmoke(_ directory: String) {

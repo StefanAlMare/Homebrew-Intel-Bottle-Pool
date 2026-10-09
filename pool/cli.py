@@ -19,19 +19,19 @@ from .isolation import default_state_dir, require_private_path, test_root
 from .capture import FormulaCapture
 from .compatibility import solutions, format_solutions
 
-VERSION = "0.3.6"
+VERSION = "0.3.7"
 
 
 def default_config():
-    root = os.environ.get("HOMEBREW_POOL_TEST_ROOT")
-    fallback = Path(root) / "config" if root else Path.home() / ".config"
-    return Path(os.environ.get("XDG_CONFIG_HOME", str(fallback))) / "intel-bottle-pool" / "config.json"
+    return Path(os.environ.get("XDG_CONFIG_HOME", str(test_root() / "config"))) / "intel-bottle-pool" / "config.json"
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description="Cooperative Intel Homebrew and external artifact pool")
     p.add_argument("--version", action="version", version="Homebrew Intel Bottle Pool " + VERSION)
     p.add_argument("--config", default=str(default_config()))
+    p.add_argument("--authorize-repository-access", action="store_true",
+                   help="Explicit current authorization for this Homebrew operation")
     commands = p.add_subparsers(dest="command", required=True)
     setup = commands.add_parser("configure")
     setup.add_argument("--url", required=True)
@@ -99,6 +99,15 @@ def main(argv=None):
     fetch.add_argument("--recipe", required=True)
     fetch.add_argument("destination")
     args = p.parse_args(argv)
+    if args.command in ("upgrade", "install", "repair", "maintenance", "capture", "compatibility", "imports") and not args.authorize_repository_access:
+        if args.command == "imports" and args.import_action == "auto" and args.state == "off":
+            pass
+        else:
+            print("Blocked: this Homebrew operation requires explicit current repository-access authorization.", file=sys.stderr)
+            return 3
+    if args.command == "imports" and args.import_action == "auto" and args.state == "on":
+        print("Blocked: automatic bottle imports remain OFF.", file=sys.stderr)
+        return 3
     if args.command in ("upgrade", "install", "sync", "refresh", "publish", "fetch", "repair", "maintenance", "imports", "capture"):
         install_stop_handlers()
     try:

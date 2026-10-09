@@ -1,0 +1,11 @@
+{
+  "schema": 2,
+  "channel": "core2-legacy",
+  "pool_id": "local-design-only",
+  "revision": 1,
+  "enabled": false,
+  "auto_import_verified_bottles": false,
+  "machines": {},
+  "reviewer_keys": [],
+  "reviews": {}
+}

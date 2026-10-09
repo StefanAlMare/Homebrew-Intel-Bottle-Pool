@@ -38,6 +38,17 @@ def key_for(manifest):
 def validate(manifest):
     if not isinstance(manifest, dict) or manifest.get("schema") != SCHEMA:
         raise PoolError("Unsupported manifest schema")
+    if manifest.get("channel", "global") != "global" or any(key in manifest for key in ("cpu_target", "legacy_provenance", "core2_legacy")):
+        raise PoolError("Core2 Legacy requires the separate private v2 channel")
+    metadata = manifest.get("metadata", {})
+    context = metadata.get("context", {}) if isinstance(metadata, dict) else {}
+    if isinstance(context, dict) and context.get("cpu_requirement") in ("core2", "penryn", "x86_64-v1"):
+        raise PoolError("Core2 artifacts cannot enter the global Pool")
+    if manifest.get("kind") == "brew-local-bottle" and isinstance(metadata, dict) and metadata.get("required_cpu_features"):
+        from .imports import homebrew_baseline_features, normalize_cpu_features
+        tag = str(manifest.get("platform", "")).removeprefix("macos-x86_64-")
+        if not homebrew_baseline_features(tag) <= normalize_cpu_features(metadata["required_cpu_features"]):
+            raise PoolError("Bottle ISA is below the global baseline; use Core2 Legacy")
     for field in ("kind", "name", "platform", "variant", "version", "filename"):
         v = manifest.get(field)
         if not isinstance(v, str) or not v or len(v) > 4096 or any(ord(c) < 32 for c in v):

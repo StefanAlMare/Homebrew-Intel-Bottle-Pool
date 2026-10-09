@@ -217,6 +217,8 @@ class FormulaCapture:
                 raise PoolError("Modern producer family needs conservative SSE4.2/AVX/AVX2 requirements")
         elif family not in ("core2", "penryn", "nehalem", "westmere", "sandybridge", "ivybridge"):
             raise PoolError("Unknown producer CPU family; review required")
+        elif family == "penryn" and "SSE4_1" not in required:
+            raise PoolError("Penryn provenance must include SSE4.1; use the private Core2 Legacy profile")
         elif family in ("nehalem", "westmere") and "SSE4_2" not in required:
             raise PoolError("Producer family requires SSE4.2")
         elif family in ("sandybridge", "ivybridge") and not {"SSE4_2", "AVX"} <= required:

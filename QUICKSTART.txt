@@ -15,7 +15,10 @@ Home / guides
   This is the normal upgrade package, not the isolated .test edition.
 
 Install / Upgrade
-  1. Download standard DMG + SHA256SUMS.txt from v0.3.6-license.1.
+  1. Download the COMPLETE v0.3.6 License 1.1 app (not license-only):
+     DMG: https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/Homebrew-Intel-Bottle-Pool-v0.3.6-license.1-standard.dmg
+     SHA256SUMS: https://github.com/StefanAlMare/Homebrew-Intel-Bottle-Pool/releases/download/v0.3.6-license.1/SHA256SUMS.txt
+     GitHub may show v0.3.5 as "Latest" because v0.3.6 is a PREVIEW.
      Calculate its SHA-256; compare the full digest with its matching line.
      A full -c check needs all listed assets downloaded.
   2. Finish work and Quit before replacement. In v0.3.6 Pause Safely, wait for
